@@ -1,0 +1,6 @@
+{
+  "name": "PaperBundle",
+  "description": "A simple family task reminder app designed specifically for parents, with a familiar paper-bundle aesthetic and large, accessible controls.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
