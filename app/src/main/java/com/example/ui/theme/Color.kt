@@ -2,20 +2,21 @@ package com.example.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// Paper bundle Palette
-val WarmPaperBackground = Color(0xFFFAF6EE) // beautiful creamy paper background
-val PaperCardLight = Color(0xFFFCFAF2) // individual paper slips
-val PencilCharcoal = Color(0xFF262626) // readable pencil soft-black
-val PencilGray = Color(0xFF6B6A68) // secondary text graphite
-val RedPencil = Color(0xFFCD4B4B) // soft checkmark red/marker
-val SoftDivider = Color(0xFFE8DBC0) // yellowed notebook seam
+// Premium Notice Board Palette (Modern facelift of traditional paper palette)
+val WarmPaperBackground = Color(0xFFFAFAF9) // Stone 50 - clean, ultra-premium soft warm background
+val PaperCardLight = Color(0xFFFFFFFF) // Crisp pure white for cards
+val PencilCharcoal = Color(0xFF1E293B) // Slate 800 - professional dark gray/black text
+val PencilGray = Color(0xFF64748B) // Slate 500 - elegant graphite/gray for secondary text
+val RedPencil = Color(0xFFEF4444) // Red 500 - clean danger/check red
+val SoftDivider = Color(0xFFE2E8F0) // Slate 200 - ultra-thin modern boundary line
 
-// Amma Profile Aesthetics
-val AmmaPrimary = Color(0xFFDC6662) // pleasant rose-gold/coral
-val AmmaSurface = Color(0xFFFFF0EF) // very light warm rose
-val AmmaOnSurface = Color(0xFF752421)
+// Amma Profile Aesthetics (Sunset Rose)
+val AmmaPrimary = Color(0xFFF43F5E) // Rose 500
+val AmmaSurface = Color(0xFFFFF1F2) // Rose 50
+val AmmaOnSurface = Color(0xFF9F1239) // Rose 800
 
-// Appa Profile Aesthetics
-val AppaPrimary = Color(0xFF387E60) // pleasant warm teal/sage
-val AppaSurface = Color(0xFFEDF7F3) // very light warm sage
-val AppaOnSurface = Color(0xFF144530)
+// Appa Profile Aesthetics (Emerald Mint)
+val AppaPrimary = Color(0xFF10B981) // Emerald 500
+val AppaSurface = Color(0xFFECFDF5) // Emerald 50
+val AppaOnSurface = Color(0xFF065F46) // Emerald 800
+

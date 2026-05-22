@@ -36,8 +36,12 @@ data class FamilyMember(
 )
 
 object FirebaseSyncManager {
-    private const val TAG = "FirebaseSyncManager"
+    private const val TAG = "PAPER_BUNDLE"
     private const val PREFS_NAME = "PaperBundleFirebasePrefs"
+
+    private const val PREDEFINED_FAMILY_ID = "fam_baskaran_home"
+    private const val PREDEFINED_FAMILY_NAME = "Baskaran Home"
+    private const val PREDEFINED_FAMILY_INVITE_CODE = "HOME482"
 
     var isFirebaseInitialized = false
         private set
@@ -74,26 +78,42 @@ object FirebaseSyncManager {
         }
 
     fun init(context: Context) {
+        Log.d(TAG, "FirebaseSyncManager: init() called: isFirebaseInitialized=$isFirebaseInitialized")
         if (isFirebaseInitialized) return
 
-        if (isConfigValid) {
-            try {
-                val options = FirebaseOptions.Builder()
-                    .setApiKey(BuildConfig.FIREBASE_API_KEY)
-                    .setApplicationId(BuildConfig.FIREBASE_APPLICATION_ID)
-                    .setProjectId(BuildConfig.FIREBASE_PROJECT_ID)
-                    .build()
-
-                FirebaseApp.initializeApp(context, options)
+        try {
+            // 1. Check if Firebase is already initialized automatically by the Google Services Plugin
+            if (FirebaseApp.getApps(context).isNotEmpty()) {
                 isFirebaseInitialized = true
-                Log.d(TAG, "Firebase initialized successfully in production mode.")
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to initialize Firebase with custom options", e)
+                Log.d(TAG, "FirebaseSyncManager: Firebase has already been initialized automatically (via google-services.json).")
+            } else {
+                // 2. Try to initialize using the default options (which loads from google-services.json generated resources)
+                FirebaseApp.initializeApp(context)
+                isFirebaseInitialized = true
+                Log.d(TAG, "FirebaseSyncManager: Firebase initialized successfully using default options (google-services.json).")
+            }
+        } catch (e: Exception) {
+            Log.d(TAG, "FirebaseSyncManager: Default Firebase initialization failed or google-services.json missing: ${e.message}. Trying custom BuildConfig fallback.")
+            // 3. Fallback to manually building options from BuildConfig if provided
+            if (isConfigValid) {
+                try {
+                    val options = FirebaseOptions.Builder()
+                        .setApiKey(BuildConfig.FIREBASE_API_KEY)
+                        .setApplicationId(BuildConfig.FIREBASE_APPLICATION_ID)
+                        .setProjectId(BuildConfig.FIREBASE_PROJECT_ID)
+                        .build()
+
+                    FirebaseApp.initializeApp(context, options)
+                    isFirebaseInitialized = true
+                    Log.d(TAG, "FirebaseSyncManager: Firebase initialized successfully with custom BuildConfig options.")
+                } catch (ex: Exception) {
+                    Log.e(TAG, "FirebaseSyncManager: Failed to initialize Firebase with custom BuildConfig options", ex)
+                    isFirebaseInitialized = false
+                }
+            } else {
+                Log.d(TAG, "FirebaseSyncManager: Firebase custom credentials missing or using placeholders. Starting in high-fidelity Sandbox Mode.")
                 isFirebaseInitialized = false
             }
-        } else {
-            Log.d(TAG, "Firebase credentials missing or using placeholders. Starting in high-fidelity Sandbox Mode.")
-            isFirebaseInitialized = false
         }
 
         // Restore session from local SharedPreferences for fast startup (<2s)
@@ -101,6 +121,7 @@ object FirebaseSyncManager {
     }
 
     private fun loadSavedSession(context: Context) {
+        Log.d(TAG, "FirebaseSyncManager: loadSavedSession() called")
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val uid = prefs.getString("uid", null)
         if (uid != null) {
@@ -110,6 +131,8 @@ object FirebaseSyncManager {
             val familyId = prefs.getString("familyId", null)
             val familyName = prefs.getString("familyName", null)
             val inviteCode = prefs.getString("familyInviteCode", null)
+
+            Log.d(TAG, "FirebaseSyncManager: Saved session found: uid=$uid, name=$name, email=$email, familyId=$familyId, familyName=$familyName, inviteCode=$inviteCode")
 
             val session = UserSession(
                 uid = uid,
@@ -122,6 +145,8 @@ object FirebaseSyncManager {
             )
             _currentUserSession.value = session
             _familyMembers.value = listOf(FamilyMember(uid, name, email, photoUrl))
+        } else {
+            Log.d(TAG, "FirebaseSyncManager: No saved session found in SharedPreferences.")
         }
     }
 
@@ -130,6 +155,7 @@ object FirebaseSyncManager {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val edit = prefs.edit()
         if (session != null) {
+            Log.d(TAG, "FirebaseSyncManager: saveSession() called - Saving session: uid=${session.uid}, name=${session.name}, familyId=${session.familyId}, familyName=${session.familyName}, inviteCode=${session.familyInviteCode}")
             edit.putString("uid", session.uid)
             edit.putString("name", session.name)
             edit.putString("email", session.email)
@@ -139,6 +165,7 @@ object FirebaseSyncManager {
             edit.putString("familyInviteCode", session.familyInviteCode)
             _familyMembers.value = listOf(FamilyMember(session.uid, session.name, session.email, session.photoUrl))
         } else {
+            Log.d(TAG, "FirebaseSyncManager: saveSession() called - Clearing session (logout)")
             edit.clear()
             _familyMembers.value = emptyList()
             stopSyncing()
@@ -155,6 +182,7 @@ object FirebaseSyncManager {
         profileChoicePhoto: String,
         onComplete: (Boolean, String?) -> Unit
     ) {
+        Log.d(TAG, "FirebaseSyncManager: authenticateWithGoogle() called: profileChoiceName='$profileChoiceName', hasIdToken=${idToken != null}, isFirebaseInitialized=$isFirebaseInitialized")
         if (isFirebaseInitialized && idToken != null) {
             // Real Firebase authentication using Google Credential
             val credential = GoogleAuthProvider.getCredential(idToken, null)
@@ -162,30 +190,63 @@ object FirebaseSyncManager {
                 .addOnCompleteListener { task ->
                     if (task.isSuccessful) {
                         val fbUser = task.result?.user
+                        Log.d(TAG, "FirebaseSyncManager: Real Firebase Google Auth successful: uid=${fbUser?.uid}, email=${fbUser?.email}")
                         val session = UserSession(
                             uid = fbUser?.uid ?: UUID.randomUUID().toString(),
                             name = fbUser?.displayName ?: profileChoiceName,
                             email = fbUser?.email ?: profileChoiceEmail,
-                            photoUrl = fbUser?.photoUrl?.toString() ?: profileChoicePhoto
+                            photoUrl = fbUser?.photoUrl?.toString() ?: profileChoicePhoto,
+                            familyId = PREDEFINED_FAMILY_ID,
+                            familyName = PREDEFINED_FAMILY_NAME,
+                            familyInviteCode = PREDEFINED_FAMILY_INVITE_CODE
                         )
-                        saveSession(context, session)
-                        onComplete(true, null)
+                        
+                        // Predefine the family and add user to it in Firestore
+                        val db = FirebaseFirestore.getInstance()
+                        val familyRef = db.collection("families").document(PREDEFINED_FAMILY_ID)
+                        val familyData = hashMapOf(
+                            "familyName" to PREDEFINED_FAMILY_NAME,
+                            "inviteCode" to PREDEFINED_FAMILY_INVITE_CODE
+                        )
+                        val memberData = hashMapOf(
+                            "uid" to session.uid,
+                            "name" to session.name,
+                            "email" to session.email,
+                            "photoUrl" to session.photoUrl
+                        )
+                        
+                        familyRef.set(familyData, com.google.firebase.firestore.SetOptions.merge())
+                            .addOnSuccessListener {
+                                Log.d(TAG, "FirebaseSyncManager: Predefined family registry set/merged successfully.")
+                                familyRef.collection("members").document(session.uid).set(memberData)
+                                    .addOnSuccessListener {
+                                        Log.d(TAG, "FirebaseSyncManager: Successfully registered user into predefined family.")
+                                        saveSession(context, session)
+                                        onComplete(true, null)
+                                    }
+                                    .addOnFailureListener { e ->
+                                        Log.e(TAG, "FirebaseSyncManager: Failed to register user into predefined family: ${e.localizedMessage}", e)
+                                        onComplete(false, "Failed to register family member: ${e.localizedMessage}")
+                                    }
+                            }
+                            .addOnFailureListener { e ->
+                                Log.e(TAG, "FirebaseSyncManager: Predefined family registry setup failed: ${e.localizedMessage}", e)
+                                onComplete(false, "Failed to initialize family workspace: ${e.localizedMessage}")
+                            }
                     } else {
-                        onComplete(false, task.exception?.localizedMessage ?: "Firebase Sign-In failed")
+                        val errMsg = task.exception?.localizedMessage ?: "Firebase Sign-In failed"
+                        Log.e(TAG, "FirebaseSyncManager: Real Firebase Google Auth failed: $errMsg", task.exception)
+                        onComplete(false, errMsg)
                     }
                 }
         } else {
-            // High-fidelity Sandbox authenticate flow
-            // Use selected chosen mock profile or generate a random uid
-            val generatedUid = "sandbox_" + profileChoiceName.lowercase().replace(" ", "_")
-            val session = UserSession(
-                uid = generatedUid,
-                name = profileChoiceName,
-                email = profileChoiceEmail,
-                photoUrl = profileChoicePhoto
-            )
-            saveSession(context, session)
-            onComplete(true, null)
+            val errorMsg = if (!isFirebaseInitialized) {
+                "Firebase is not initialized. Please verify your google-services.json file is present and properly formatted."
+            } else {
+                "Google Services Web Client ID is not configured (or missing from google-services.json). Sign-in cannot proceed."
+            }
+            Log.e(TAG, "FirebaseSyncManager: Real Firebase Google Auth failed: $errorMsg")
+            onComplete(false, errorMsg)
         }
     }
 
@@ -195,11 +256,14 @@ object FirebaseSyncManager {
         familyName: String,
         onComplete: (Boolean, String?) -> Unit
     ) {
-        val current = _currentUserSession.value ?: return onComplete(false, "No active user session")
+        val current = _currentUserSession.value ?: return onComplete(false, "No active user session").also {
+            Log.e(TAG, "FirebaseSyncManager: createFamily() failed: No active user session")
+        }
         val randomDigits = (100..999).random()
         val suffix = familyName.take(4).uppercase().replace(" ", "")
         val code = "$suffix$randomDigits"
         val newFamilyId = "fam_${UUID.randomUUID().toString().take(8)}"
+        Log.d(TAG, "FirebaseSyncManager: createFamily() called: familyName='$familyName', generatedCode=$code, generatedFamId=$newFamilyId, isFirebaseInitialized=$isFirebaseInitialized")
 
         if (isFirebaseInitialized) {
             val db = FirebaseFirestore.getInstance()
@@ -211,6 +275,7 @@ object FirebaseSyncManager {
             db.collection("families").document(newFamilyId)
                 .set(familyData)
                 .addOnSuccessListener {
+                    Log.d(TAG, "FirebaseSyncManager: Firestore createFamily successfully created registry doc for $newFamilyId. Registering member...")
                     // Register current user as a family member
                     val memberData = hashMapOf(
                         "uid" to current.uid,
@@ -221,6 +286,7 @@ object FirebaseSyncManager {
                     db.collection("families").document(newFamilyId).collection("members").document(current.uid)
                         .set(memberData)
                         .addOnSuccessListener {
+                            Log.d(TAG, "FirebaseSyncManager: Firestore member registration successful, saving session...")
                             val updatedSession = current.copy(
                                 familyId = newFamilyId,
                                 familyName = familyName,
@@ -230,21 +296,17 @@ object FirebaseSyncManager {
                             onComplete(true, null)
                         }
                         .addOnFailureListener { e ->
+                            Log.e(TAG, "FirebaseSyncManager: Firestore member registration failed: ${e.localizedMessage}", e)
                             onComplete(false, "Failed to register family member: ${e.localizedMessage}")
                         }
                 }
                 .addOnFailureListener { e ->
+                    Log.e(TAG, "FirebaseSyncManager: Firestore createFamily registry doc creation failed: ${e.localizedMessage}", e)
                     onComplete(false, "Failed to create family registry: ${e.localizedMessage}")
                 }
         } else {
-            // Sandbox creation
-            val updatedSession = current.copy(
-                familyId = newFamilyId,
-                familyName = familyName,
-                familyInviteCode = code
-            )
-            saveSession(context, updatedSession)
-            onComplete(true, null)
+            Log.e(TAG, "FirebaseSyncManager: createFamily() failed: Firebase not initialized")
+            onComplete(false, "Firebase is not initialized. Cannot create family workspace.")
         }
     }
 
@@ -254,8 +316,11 @@ object FirebaseSyncManager {
         inviteCode: String,
         onComplete: (Boolean, String?) -> Unit
     ) {
-        val current = _currentUserSession.value ?: return onComplete(false, "No active user session")
+        val current = _currentUserSession.value ?: return onComplete(false, "No active user session").also {
+            Log.e(TAG, "FirebaseSyncManager: joinFamily() failed: No active user session")
+        }
         val cleanCode = inviteCode.trim().uppercase()
+        Log.d(TAG, "FirebaseSyncManager: joinFamily() called: inviteCode='$inviteCode', cleanCode='$cleanCode', isFirebaseInitialized=$isFirebaseInitialized")
 
         if (isFirebaseInitialized) {
             val db = FirebaseFirestore.getInstance()
@@ -264,11 +329,13 @@ object FirebaseSyncManager {
                 .get()
                 .addOnSuccessListener { query ->
                     if (query == null || query.isEmpty) {
+                        Log.w(TAG, "FirebaseSyncManager: Firestore joinFamily: no family found with invite code='$cleanCode'")
                         onComplete(false, "Invalid Invite Code! Please verify with your family member.")
                     } else {
                         val doc = query.documents.first()
                         val famId = doc.id
                         val famName = doc.getString("familyName") ?: "Family Board"
+                        Log.d(TAG, "FirebaseSyncManager: Firestore joinFamily: found family with ID=$famId, name='$famName'. Registering member...")
                         
                         // Register member in Firestore
                         val memberData = hashMapOf(
@@ -280,6 +347,7 @@ object FirebaseSyncManager {
                         db.collection("families").document(famId).collection("members").document(current.uid)
                             .set(memberData)
                             .addOnSuccessListener {
+                                Log.d(TAG, "FirebaseSyncManager: Firestore joinFamily member registration successful, saving session...")
                                 val updatedSession = current.copy(
                                     familyId = famId,
                                     familyName = famName,
@@ -289,26 +357,18 @@ object FirebaseSyncManager {
                                 onComplete(true, null)
                             }
                             .addOnFailureListener { e ->
+                                Log.e(TAG, "FirebaseSyncManager: Firestore joinFamily member registration failed: ${e.localizedMessage}", e)
                                 onComplete(false, "Failed to register profile info: ${e.localizedMessage}")
                             }
                     }
                 }
                 .addOnFailureListener { e ->
+                    Log.e(TAG, "FirebaseSyncManager: Firestore joinFamily verification query failed: ${e.localizedMessage}", e)
                     onComplete(false, "Error verifying invite code: ${e.localizedMessage}")
                 }
         } else {
-            // High fidelity sandbox verification
-            // Support joining predefined codes for simulated family play!
-            // "HOME482" standard
-            val defaultName = if (cleanCode.startsWith("HOME")) "Baskaran Home" else "Family Shared Board"
-            val targetFamId = "fam_sandbox_${cleanCode.lowercase()}"
-            val updatedSession = current.copy(
-                familyId = targetFamId,
-                familyName = defaultName,
-                familyInviteCode = cleanCode
-            )
-            saveSession(context, updatedSession)
-            onComplete(true, null)
+            Log.e(TAG, "FirebaseSyncManager: joinFamily() failed: Firebase not initialized")
+            onComplete(false, "Firebase is not initialized. Cannot join family workspace.")
         }
     }
 
@@ -317,17 +377,21 @@ object FirebaseSyncManager {
         val session = _currentUserSession.value ?: return
         val familyId = session.familyId ?: return
 
+        Log.d(TAG, "FirebaseSyncManager: startSyncing() called for familyId=$familyId, isFirebaseInitialized=$isFirebaseInitialized")
         stopSyncing()
+
+        // Real Firestore syncing begins
 
         if (isFirebaseInitialized) {
             val db = FirebaseFirestore.getInstance()
             activeListener = db.collection("families").document(familyId).collection("tasks")
                 .addSnapshotListener { snapshot, error ->
                     if (error != null) {
-                        Log.e(TAG, "Sync observation failed", error)
+                        Log.e(TAG, "FirebaseSyncManager: Sync observation failed", error)
                         return@addSnapshotListener
                     }
                     if (snapshot != null) {
+                        Log.d(TAG, "FirebaseSyncManager: Task snapshot listener triggered: docCount=${snapshot.size()}")
                         val firestoreTasks = snapshot.documents.mapNotNull { doc ->
                             try {
                                 val title = doc.getString("title") ?: ""
@@ -359,6 +423,7 @@ object FirebaseSyncManager {
 
                         // Mirror tasks into Room DB on background Thread
                         ioScope.launch {
+                            Log.d(TAG, "FirebaseSyncManager: Mirroring ${firestoreTasks.size} firestore tasks to local Room...")
                             // Find deleted tasks: tasks in local Room that belong to current family, but aren't in Firestore anymore
                             // To keep it simple, we replace/update
                             for (task in firestoreTasks) {
@@ -371,10 +436,11 @@ object FirebaseSyncManager {
             memberListener = db.collection("families").document(familyId).collection("members")
                 .addSnapshotListener { snapshot, error ->
                     if (error != null) {
-                        Log.e(TAG, "Sync observation of members failed", error)
+                        Log.e(TAG, "FirebaseSyncManager: Sync observation of members failed", error)
                         return@addSnapshotListener
                     }
                     if (snapshot != null) {
+                        Log.d(TAG, "FirebaseSyncManager: Member snapshot listener triggered: docCount=${snapshot.size()}")
                         val members = snapshot.documents.mapNotNull { doc ->
                             try {
                                 val uid = doc.getString("uid") ?: doc.id
@@ -387,6 +453,7 @@ object FirebaseSyncManager {
                             }
                         }
                         if (members.isNotEmpty()) {
+                            Log.d(TAG, "FirebaseSyncManager: Updating family members flow: size=${members.size}")
                             _familyMembers.value = members
                         }
                     }
@@ -395,6 +462,7 @@ object FirebaseSyncManager {
     }
 
     fun stopSyncing() {
+        Log.d(TAG, "FirebaseSyncManager: stopSyncing() called. activeListener exists=${activeListener != null}, memberListener exists=${memberListener != null}")
         activeListener?.remove()
         activeListener = null
         memberListener?.remove()
@@ -405,6 +473,9 @@ object FirebaseSyncManager {
     fun pushTaskAdditionOrUpdate(task: Task) {
         val session = _currentUserSession.value ?: return
         val familyId = session.familyId ?: return
+        Log.d(TAG, "FirebaseSyncManager: pushTaskAdditionOrUpdate() called for taskId=${task.id}, title='${task.title}', isFirebaseInitialized=$isFirebaseInitialized")
+
+        // Push task to firestore
 
         if (isFirebaseInitialized) {
             val db = FirebaseFirestore.getInstance()
@@ -422,10 +493,10 @@ object FirebaseSyncManager {
             db.collection("families").document(familyId).collection("tasks").document(task.id)
                 .set(taskMap)
                 .addOnSuccessListener {
-                    Log.d(TAG, "Task saved successfully in cloud Firestore")
+                    Log.d(TAG, "FirebaseSyncManager: pushTaskAdditionOrUpdate SUCCESS: Task saved successfully in cloud Firestore")
                 }
                 .addOnFailureListener { e ->
-                    Log.e(TAG, "Error writing task doc to firestore", e)
+                    Log.e(TAG, "FirebaseSyncManager: Error writing task doc to firestore", e)
                 }
         }
     }
@@ -434,16 +505,19 @@ object FirebaseSyncManager {
     fun pushTaskDeletion(taskId: String) {
         val session = _currentUserSession.value ?: return
         val familyId = session.familyId ?: return
+        Log.d(TAG, "FirebaseSyncManager: pushTaskDeletion() called for taskId=$taskId, isFirebaseInitialized=$isFirebaseInitialized")
+
+        // Push task deletion to firestore
 
         if (isFirebaseInitialized) {
             val db = FirebaseFirestore.getInstance()
             db.collection("families").document(familyId).collection("tasks").document(taskId)
                 .delete()
                 .addOnSuccessListener {
-                    Log.d(TAG, "Task doc removed successfully from firestore")
+                    Log.d(TAG, "FirebaseSyncManager: pushTaskDeletion SUCCESS: Task doc removed successfully from firestore")
                 }
                 .addOnFailureListener { e ->
-                    Log.e(TAG, "Error deleting task doc from firestore", e)
+                    Log.e(TAG, "FirebaseSyncManager: Error deleting task doc from firestore", e)
                 }
         }
     }

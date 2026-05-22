@@ -3,6 +3,7 @@ package com.example
 import android.app.Activity
 import android.content.Intent
 import android.os.Bundle
+import android.util.Log
 import android.speech.RecognizerIntent
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -10,29 +11,72 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.*
-import androidx.compose.animation.core.*
+import com.google.android.gms.auth.api.signin.GoogleSignIn
+import com.google.android.gms.auth.api.signin.GoogleSignInOptions
+import com.google.android.gms.common.api.ApiException
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.foundation.border
+import kotlin.math.absoluteValue
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.ExitToApp
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.text.TextStyle
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Divider
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.FloatingActionButtonDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -44,13 +88,15 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalClipboardManager
-import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -63,20 +109,37 @@ import androidx.lifecycle.ViewModelProvider
 import com.example.data.Task
 import com.example.ui.TaskViewModel
 import com.example.ui.TaskViewModelFactory
-import com.example.ui.theme.*
+import com.example.ui.theme.AmmaOnSurface
+import com.example.ui.theme.AmmaPrimary
+import com.example.ui.theme.AmmaSurface
+import com.example.ui.theme.AppaOnSurface
+import com.example.ui.theme.AppaPrimary
+import com.example.ui.theme.AppaSurface
+import com.example.ui.theme.MyApplicationTheme
+import com.example.ui.theme.PaperCardLight
+import com.example.ui.theme.PencilCharcoal
+import com.example.ui.theme.PencilGray
+import com.example.ui.theme.RedPencil
+import com.example.ui.theme.SoftDivider
+import com.example.ui.theme.WarmPaperBackground
 import com.example.util.Language
 import com.example.util.LocalizedStrings
-import com.example.util.FirebaseSyncManager
 import com.example.util.UserSession
 import kotlin.math.absoluteValue
 
 class MainActivity : ComponentActivity() {
+    companion object {
+        private const val TAG = "PAPER_BUNDLE"
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        Log.d(TAG, "MainActivity: onCreate() started")
         enableEdgeToEdge()
 
         val app = application as TaskApplication
         val repository = app.repository
+        Log.d(TAG, "MainActivity: onCreate: TaskRepository loaded successfully")
         val viewModel = ViewModelProvider(
             this,
             TaskViewModelFactory(application, repository)
@@ -94,14 +157,13 @@ class MainActivity : ComponentActivity() {
 fun MainScreen(viewModel: TaskViewModel) {
     val userSession by viewModel.currentUserSession.collectAsState()
 
+    LaunchedEffect(userSession) {
+        Log.d("PAPER_BUNDLE", "MainActivity: MainScreen: userSession state updated - uid=${userSession?.uid}, familyId=${userSession?.familyId}")
+    }
+
     when {
         userSession == null -> {
             GoogleLoginScreen(viewModel)
-        }
-        userSession?.familyId == null -> {
-            userSession?.let { session ->
-                FamilySetupScreen(viewModel = viewModel, session = session)
-            }
         }
         else -> {
             userSession?.let { session ->
@@ -118,109 +180,179 @@ fun GoogleLoginScreen(viewModel: TaskViewModel) {
     val authLoading by viewModel.authLoading.collectAsState()
     val authError by viewModel.authError.collectAsState()
 
+    val googleSignInLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            val task = GoogleSignIn.getSignedInAccountFromIntent(result.data)
+            try {
+                val account = task.getResult(ApiException::class.java)
+                val idToken = account.idToken
+                val name = account.displayName ?: "User"
+                val email = account.email ?: ""
+                val photoUrl = account.photoUrl?.toString() ?: ""
+                
+                Log.d("PAPER_BUNDLE", "GoogleLoginScreen: Native sign-in success. Name: $name, Email: $email, ID Token: ${idToken != null}")
+                
+                viewModel.loginWithGoogleProfile(context, name, email, photoUrl, idToken) {
+                    Toast.makeText(context, "Logged in securely", Toast.LENGTH_SHORT).show()
+                }
+            } catch (e: ApiException) {
+                Log.e("PAPER_BUNDLE", "GoogleLoginScreen: Google Sign-In failed code=${e.statusCode}, message=${e.message}", e)
+                viewModel.authError.value = "Google Sign-In failed: ${e.message} (status: ${e.statusCode})"
+                Toast.makeText(context, "Google Sign-In failed (status: ${e.statusCode})", Toast.LENGTH_LONG).show()
+            }
+        } else {
+            Log.e("PAPER_BUNDLE", "GoogleLoginScreen: Activity result code is not OK: ${result.resultCode}")
+            viewModel.authError.value = "Google Sign-In cancelled or failed (code: ${result.resultCode})"
+            Toast.makeText(context, "Google Sign-In cancelled", Toast.LENGTH_SHORT).show()
+        }
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(WarmPaperBackground)
+            .background(
+                Brush.verticalGradient(
+                    colors = listOf(
+                        Color(0xFFF8FAFC), // Slate 50
+                        Color(0xFFF1F5F9)  // Slate 100
+                    )
+                )
+            )
             .statusBarsPadding()
             .navigationBarsPadding(),
-        contentAlignment = Alignment.TopCenter
+        contentAlignment = Alignment.Center
     ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(24.dp)
+                .padding(28.dp)
                 .verticalScroll(rememberScrollState()),
-            horizontalAlignment = Alignment.CenterHorizontally
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
         ) {
-            Spacer(modifier = Modifier.height(40.dp))
-
-            // Wooden Clipboard Visual Logo
+            // Modern Glowing Visual Logo (Abstract Circular Gradient representing Amma & Appa unity)
             Box(
                 modifier = Modifier
-                    .size(100.dp)
+                    .size(108.dp)
+                    .shadow(12.dp, shape = RoundedCornerShape(24.dp))
+                    .background(Color.White, shape = RoundedCornerShape(24.dp))
                     .drawBehind {
-                        // clip plate
+                        // Ambient glowing gradient ring on border
                         drawRoundRect(
-                            color = Color(0xFF8F8D88),
-                            topLeft = Offset(size.width * 0.2f, 0f),
-                            size = Size(size.width * 0.6f, size.height * 0.25f),
-                            cornerRadius = androidx.compose.ui.geometry.CornerRadius(8f, 8f)
-                        )
-                        // paper bundle backdrop
-                        drawRoundRect(
-                            color = PaperCardLight,
-                            topLeft = Offset(0f, size.height * 0.15f),
-                            size = Size(size.width, size.height * 0.85f),
-                            cornerRadius = androidx.compose.ui.geometry.CornerRadius(16f, 16f)
+                            brush = Brush.sweepGradient(
+                                colors = listOf(
+                                    AmmaPrimary,
+                                    AppaPrimary,
+                                    AmmaPrimary
+                                )
+                            ),
+                            style = Stroke(width = 4.dp.toPx(), cap = StrokeCap.Round),
+                            cornerRadius = androidx.compose.ui.geometry.CornerRadius(24.dp.toPx(), 24.dp.toPx())
                         )
                     },
                 contentAlignment = Alignment.Center
             ) {
-                Text("📌", fontSize = 42.sp)
+                Text(
+                    text = "📌",
+                    fontSize = 44.sp,
+                    modifier = Modifier.graphicsLayer {
+                        translationY = -2.dp.toPx()
+                    }
+                )
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(32.dp))
 
             Text(
                 text = LocalizedStrings.get("title", language),
-                fontSize = 40.sp,
-                fontWeight = FontWeight.Bold,
+                fontSize = 42.sp,
+                fontWeight = FontWeight.ExtraBold,
                 fontFamily = FontFamily.Serif,
                 color = PencilCharcoal,
-                textAlign = TextAlign.Center
+                textAlign = TextAlign.Center,
+                letterSpacing = (-0.5).sp
             )
+
+            Spacer(modifier = Modifier.height(8.dp))
 
             Text(
                 text = LocalizedStrings.get("app_desc", language),
                 fontSize = 16.sp,
-                fontWeight = FontWeight.Medium,
+                fontWeight = FontWeight.Normal,
                 fontFamily = FontFamily.SansSerif,
                 color = PencilGray,
                 textAlign = TextAlign.Center,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                modifier = Modifier.padding(horizontal = 24.dp)
             )
 
-            Spacer(modifier = Modifier.height(40.dp))
+            Spacer(modifier = Modifier.height(48.dp))
 
-            // Main Google Sign in Button
+            // Main Google Sign in Button - Sleek capsule with modern elevation and clean border
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(56.dp)
                     .clip(RoundedCornerShape(28.dp))
                     .clickable {
-                        // Authenticate as a real Google sign-in simulation
-                        viewModel.loginWithGoogleProfile(
-                            context,
-                            "Kowshik Baskaran",
-                            "kowshi587@gmail.com",
-                            "https://api.dicebear.com/7.x/adventurer/svg?seed=Kowshik"
-                        ) {
-                            Toast.makeText(context, "Logged in securely", Toast.LENGTH_SHORT).show()
+                        try {
+                            var resId = context.resources.getIdentifier("default_web_client_id", "string", "com.example")
+                            if (resId == 0) {
+                                resId = context.resources.getIdentifier("default_web_client_id", "string", context.packageName)
+                            }
+                            val webClientId = if (resId != 0) context.getString(resId) else null
+                            
+                            val gsoBuilder = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+                                .requestEmail()
+                                .requestProfile()
+                            
+                            if (!webClientId.isNullOrBlank()) {
+                                Log.d("PAPER_BUNDLE", "GoogleLoginScreen: Found Web Client ID: $webClientId. Requesting ID Token.")
+                                gsoBuilder.requestIdToken(webClientId)
+                            } else {
+                                Log.d("PAPER_BUNDLE", "GoogleLoginScreen: Web Client ID not found in resources. Proceeding without ID Token request.")
+                            }
+                            val gso = gsoBuilder.build()
+                            val googleSignInClient = GoogleSignIn.getClient(context, gso)
+                            googleSignInClient.signOut().addOnCompleteListener {
+                                googleSignInLauncher.launch(googleSignInClient.signInIntent)
+                            }
+                        } catch (e: Exception) {
+                            Log.e("PAPER_BUNDLE", "GoogleLoginScreen: Failed to launch Google Sign-In.", e)
+                            viewModel.authError.value = "Failed to launch Google Sign-In: ${e.message}"
+                            Toast.makeText(context, "Google Sign-In unavailable", Toast.LENGTH_LONG).show()
                         }
                     }
                     .testTag("google_login_button"),
                 colors = CardDefaults.cardColors(containerColor = Color.White),
                 border = BorderStroke(1.dp, SoftDivider),
-                elevation = CardDefaults.cardElevation(2.dp)
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp, pressedElevation = 6.dp)
             ) {
                 Row(
                     modifier = Modifier.fillMaxSize(),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.Center
                 ) {
-                    Text(
-                        "G ",
-                        fontSize = 24.sp,
-                        fontWeight = FontWeight.Black,
-                        color = Color(0xFF4285F4),
-                        fontFamily = FontFamily.Monospace
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
+                    // Google Modern Logo Representation
+                    Box(
+                        modifier = Modifier
+                            .size(24.dp)
+                            .background(Color(0xFFF1F5F9), shape = CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            "G",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF4285F4),
+                            fontFamily = FontFamily.SansSerif
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(12.dp))
                     Text(
                         text = LocalizedStrings.get("sign_in_google", language),
-                        fontSize = 17.sp,
+                        fontSize = 16.sp,
                         fontWeight = FontWeight.Bold,
                         color = PencilCharcoal,
                         fontFamily = FontFamily.SansSerif
@@ -262,7 +394,14 @@ fun FamilySetupScreen(viewModel: TaskViewModel, session: UserSession) {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(WarmPaperBackground)
+            .background(
+                Brush.verticalGradient(
+                    colors = listOf(
+                        Color(0xFFF8FAFC), // Slate 50
+                        Color(0xFFF1F5F9)  // Slate 100
+                    )
+                )
+            )
             .statusBarsPadding()
             .navigationBarsPadding(),
         contentAlignment = Alignment.TopCenter
@@ -278,77 +417,96 @@ fun FamilySetupScreen(viewModel: TaskViewModel, session: UserSession) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 12.dp),
+                    .padding(vertical = 16.dp, horizontal = 4.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                // Gradient Profile Initials avatar
                 Box(
                     modifier = Modifier
-                        .size(48.dp)
-                        .clip(CircleShape)
-                        .background(Color(0xFFE8DBC0)),
+                        .size(56.dp)
+                        .shadow(4.dp, CircleShape)
+                        .background(
+                            Brush.linearGradient(
+                                colors = listOf(AmmaPrimary, AppaPrimary)
+                            ),
+                            shape = CircleShape
+                        ),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(session.name.first().toString(), fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                    Text(
+                        text = session.name.first().toString().uppercase(),
+                        fontSize = 24.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = Color.White
+                    )
                 }
-                Spacer(modifier = Modifier.width(12.dp))
+                Spacer(modifier = Modifier.width(16.dp))
                 Column {
                     Text(
                         text = "Hello, ${session.name}!",
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = PencilCharcoal
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = PencilCharcoal,
+                        fontFamily = FontFamily.SansSerif
                     )
                     Text(
                         text = session.email,
-                        fontSize = 13.sp,
-                        color = PencilGray
+                        fontSize = 14.sp,
+                        color = PencilGray,
+                        fontFamily = FontFamily.SansSerif
                     )
                 }
             }
 
-            Divider(color = SoftDivider, modifier = Modifier.padding(bottom = 16.dp))
+            Divider(color = SoftDivider, modifier = Modifier.padding(bottom = 24.dp))
 
             // Card 1: Create Family board
             Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = PaperCardLight),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .shadow(4.dp, shape = RoundedCornerShape(16.dp)),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
                 border = BorderStroke(1.dp, SoftDivider),
-                shape = RoundedCornerShape(12.dp)
+                shape = RoundedCornerShape(16.dp)
             ) {
-                Column(modifier = Modifier.padding(16.dp)) {
+                Column(modifier = Modifier.padding(20.dp)) {
                     Text(
                         text = LocalizedStrings.get("create_family_title", language),
-                        fontSize = 18.sp,
+                        fontSize = 20.sp,
                         fontWeight = FontWeight.Bold,
                         color = PencilCharcoal,
                         fontFamily = FontFamily.Serif
                     )
                     Text(
                         text = LocalizedStrings.get("create_family_desc", language),
-                        fontSize = 13.sp,
+                        fontSize = 14.sp,
                         color = PencilGray,
+                        fontFamily = FontFamily.SansSerif,
                         modifier = Modifier.padding(vertical = 4.dp)
                     )
 
-                    Spacer(modifier = Modifier.height(10.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
 
                     OutlinedTextField(
                         value = familyNameInput,
                         onValueChange = { familyNameInput = it },
-                        placeholder = { Text(LocalizedStrings.get("family_name_hint", language), fontSize = 14.sp) },
+                        placeholder = { Text(LocalizedStrings.get("family_name_hint", language), fontSize = 14.sp, color = PencilGray.copy(alpha = 0.7f)) },
                         modifier = Modifier
                             .fillMaxWidth()
                             .testTag("create_family_input"),
                         singleLine = true,
+                        shape = RoundedCornerShape(12.dp),
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = AmmaPrimary,
                             unfocusedBorderColor = SoftDivider,
-                            focusedContainerColor = Color.White,
-                            unfocusedContainerColor = Color.White
+                            focusedContainerColor = Color(0xFFF8FAFC),
+                            unfocusedContainerColor = Color(0xFFF8FAFC),
+                            focusedTextColor = PencilCharcoal,
+                            unfocusedTextColor = PencilCharcoal
                         )
                     )
 
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
 
                     Button(
                         onClick = {
@@ -359,14 +517,20 @@ fun FamilySetupScreen(viewModel: TaskViewModel, session: UserSession) {
                         enabled = familyNameInput.isNotBlank() && !authLoading,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(48.dp)
+                            .height(52.dp)
+                            .shadow(2.dp, shape = RoundedCornerShape(26.dp))
                             .testTag("create_family_button"),
-                        colors = ButtonDefaults.buttonColors(containerColor = AmmaPrimary)
+                        shape = RoundedCornerShape(26.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = AmmaPrimary,
+                            disabledContainerColor = AmmaPrimary.copy(alpha = 0.5f)
+                        )
                     ) {
                         Text(
                             text = LocalizedStrings.get("create_button", language),
                             fontWeight = FontWeight.Bold,
-                            fontSize = 14.sp
+                            fontSize = 16.sp,
+                            color = Color.White
                         )
                     }
                 }
@@ -374,57 +538,75 @@ fun FamilySetupScreen(viewModel: TaskViewModel, session: UserSession) {
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            Text(
-                text = LocalizedStrings.get("or_label", language),
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Bold,
-                color = PencilGray,
-                fontFamily = FontFamily.SansSerif
-            )
+            // Modern Divider OR indicator
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
+            ) {
+                Divider(modifier = Modifier.weight(1f), color = SoftDivider)
+                Text(
+                    text = LocalizedStrings.get("or_label", language),
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = PencilGray,
+                    fontFamily = FontFamily.SansSerif,
+                    modifier = Modifier.padding(horizontal = 16.dp)
+                )
+                Divider(modifier = Modifier.weight(1f), color = SoftDivider)
+            }
 
             Spacer(modifier = Modifier.height(20.dp))
 
             // Card 2: Join Family board
             Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = PaperCardLight),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .shadow(4.dp, shape = RoundedCornerShape(16.dp)),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
                 border = BorderStroke(1.dp, SoftDivider),
-                shape = RoundedCornerShape(12.dp)
+                shape = RoundedCornerShape(16.dp)
             ) {
-                Column(modifier = Modifier.padding(16.dp)) {
+                Column(modifier = Modifier.padding(20.dp)) {
                     Text(
                         text = LocalizedStrings.get("join_family_title", language),
-                        fontSize = 18.sp,
+                        fontSize = 20.sp,
                         fontWeight = FontWeight.Bold,
                         color = PencilCharcoal,
                         fontFamily = FontFamily.Serif
                     )
                     Text(
                         text = LocalizedStrings.get("join_family_desc", language),
-                        fontSize = 13.sp,
+                        fontSize = 14.sp,
                         color = PencilGray,
+                        fontFamily = FontFamily.SansSerif,
                         modifier = Modifier.padding(vertical = 4.dp)
                     )
 
-                    Spacer(modifier = Modifier.height(10.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
 
                     OutlinedTextField(
                         value = inviteCodeInput,
                         onValueChange = { inviteCodeInput = it },
-                        placeholder = { Text(LocalizedStrings.get("invite_code_hint", language), fontSize = 14.sp) },
+                        placeholder = { Text(LocalizedStrings.get("invite_code_hint", language), fontSize = 14.sp, color = PencilGray.copy(alpha = 0.7f)) },
                         modifier = Modifier
                             .fillMaxWidth()
                             .testTag("join_family_input"),
                         singleLine = true,
+                        shape = RoundedCornerShape(12.dp),
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = AppaPrimary,
                             unfocusedBorderColor = SoftDivider,
-                            focusedContainerColor = Color.White,
-                            unfocusedContainerColor = Color.White
+                            focusedContainerColor = Color(0xFFF8FAFC),
+                            unfocusedContainerColor = Color(0xFFF8FAFC),
+                            focusedTextColor = PencilCharcoal,
+                            unfocusedTextColor = PencilCharcoal
                         )
                     )
 
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
 
                     Button(
                         onClick = {
@@ -435,20 +617,26 @@ fun FamilySetupScreen(viewModel: TaskViewModel, session: UserSession) {
                         enabled = inviteCodeInput.isNotBlank() && !authLoading,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(48.dp)
+                            .height(52.dp)
+                            .shadow(2.dp, shape = RoundedCornerShape(26.dp))
                             .testTag("join_family_button"),
-                        colors = ButtonDefaults.buttonColors(containerColor = AppaPrimary)
+                        shape = RoundedCornerShape(26.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = AppaPrimary,
+                            disabledContainerColor = AppaPrimary.copy(alpha = 0.5f)
+                        )
                     ) {
                         Text(
                             text = LocalizedStrings.get("join_button", language),
                             fontWeight = FontWeight.Bold,
-                            fontSize = 14.sp
+                            fontSize = 16.sp,
+                            color = Color.White
                         )
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(30.dp))
+            Spacer(modifier = Modifier.height(36.dp))
 
             // Disconnect/Logout button at bottom
             OutlinedButton(
@@ -457,13 +645,15 @@ fun FamilySetupScreen(viewModel: TaskViewModel, session: UserSession) {
                     .fillMaxWidth()
                     .height(50.dp)
                     .testTag("logout_profile_button"),
-                border = BorderStroke(1.dp, SoftDivider),
+                border = BorderStroke(1.5.dp, SoftDivider),
+                shape = RoundedCornerShape(25.dp),
                 colors = ButtonDefaults.outlinedButtonColors(contentColor = PencilCharcoal)
             ) {
                 Text(
                     text = LocalizedStrings.get("logout_button", language),
                     fontWeight = FontWeight.Bold,
-                    fontSize = 14.sp
+                    fontSize = 15.sp,
+                    fontFamily = FontFamily.SansSerif
                 )
             }
 
@@ -711,12 +901,15 @@ fun WoodenHeader(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .shadow(6.dp)
+            .shadow(
+                elevation = 2.dp,
+                shape = RoundedCornerShape(bottomStart = 16.dp, bottomEnd = 16.dp)
+            )
             .background(
                 Brush.verticalGradient(
                     colors = listOf(
-                        Color(0xFF8B5330), // warm teak top
-                        Color(0xFF4C2711)  // dark mahogany bottom
+                        Color.White.copy(alpha = 0.95f),
+                        Color.White.copy(alpha = 0.85f)
                     )
                 )
             )
@@ -729,12 +922,19 @@ fun WoodenHeader(
                 .align(Alignment.CenterStart),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // User photo / avatar
+            // User photo / avatar - modern gradient look
             Box(
                 modifier = Modifier
-                    .size(38.dp)
+                    .size(40.dp)
                     .clip(CircleShape)
-                    .background(Color(0xFFFCF4E8).copy(alpha = 0.2f))
+                    .background(
+                        Brush.linearGradient(
+                            colors = listOf(
+                                AmmaPrimary,
+                                AppaPrimary
+                            )
+                        )
+                    )
                     .clickable {
                         userSession?.familyInviteCode?.let { code ->
                             clipboardManager.setText(AnnotatedString(code))
@@ -744,44 +944,46 @@ fun WoodenHeader(
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = userSession?.name?.first().toString(),
+                    text = userSession?.name?.firstOrNull()?.uppercase().toString(),
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Bold,
-                    color = Color(0xFFFCF4E8)
+                    color = Color.White
                 )
             }
 
-            Spacer(modifier = Modifier.width(10.dp))
+            Spacer(modifier = Modifier.width(12.dp))
 
             Column {
                 Text(
                     text = userSession?.familyName ?: LocalizedStrings.get("title", language),
-                    fontSize = 22.sp,
+                    fontSize = 20.sp,
                     fontWeight = FontWeight.Bold,
-                    fontFamily = FontFamily.Serif,
-                    color = Color(0xFFFCF4E8),
+                    fontFamily = FontFamily.SansSerif,
+                    color = PencilCharcoal,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
                 
+                Spacer(modifier = Modifier.height(2.dp))
+                
                 userSession?.familyInviteCode?.let { code ->
                     Row(
                         modifier = Modifier
-                            .clip(RoundedCornerShape(4.dp))
-                            .background(Color(0xFF381C0B))
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(Color(0xFFF1F5F9))
                             .clickable {
                                 clipboardManager.setText(AnnotatedString(code))
                                 Toast.makeText(context, "Invite Code Copied: $code", Toast.LENGTH_SHORT).show()
                             }
-                            .padding(horizontal = 6.dp, vertical = 2.dp),
+                            .padding(horizontal = 8.dp, vertical = 3.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
                             text = String.format(LocalizedStrings.get("invite_code_banner", language), code),
                             fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
+                            fontWeight = FontWeight.SemiBold,
                             fontFamily = FontFamily.Monospace,
-                            color = Color(0xFFDCC2A1)
+                            color = PencilGray
                         )
                     }
                 }
@@ -797,7 +999,7 @@ fun WoodenHeader(
             Row(
                 modifier = Modifier
                     .clip(RoundedCornerShape(20.dp))
-                    .background(Color(0xFF381C0B))
+                    .background(Color(0xFFF1F5F9))
                     .padding(3.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -813,18 +1015,18 @@ fun WoodenHeader(
                 )
             }
 
-            // Tactile sign-out icon from the notice board
+            // Tactile modern sign-out icon from the notice board
             IconButton(
                 onClick = onLogout,
                 modifier = Modifier
                     .size(36.dp)
                     .clip(CircleShape)
-                    .background(Color(0xFF381C0B))
+                    .background(Color(0xFFF1F5F9))
             ) {
                 Icon(
                     imageVector = Icons.Default.ExitToApp,
                     contentDescription = "Sign Out",
-                    tint = Color(0xFFDCC2A1),
+                    tint = PencilCharcoal,
                     modifier = Modifier.size(18.dp)
                 )
             }
@@ -841,19 +1043,18 @@ fun LanguageButton(
     Box(
         modifier = Modifier
             .clip(RoundedCornerShape(18.dp))
-            .background(if (isSelected) Color(0xFFB57045) else Color.Transparent)
+            .background(if (isSelected) PencilCharcoal else Color.Transparent)
             .clickable(onClick = onClick)
-            .padding(horizontal = 10.dp, vertical = 5.dp)
+            .padding(horizontal = 12.dp, vertical = 6.dp)
     ) {
         Text(
             text = text,
             fontSize = 13.sp,
             fontWeight = FontWeight.Bold,
-            color = if (isSelected) Color.White else Color(0xFFC4AAA0)
+            color = if (isSelected) Color.White else PencilGray
         )
     }
 }
-
 @Composable
 fun PaperHangerRow(
     language: Language,
@@ -863,22 +1064,12 @@ fun PaperHangerRow(
     memberPendingCounts: Map<String, Int>
 ) {
     Column {
-        // Wooden hanging rod
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(6.dp)
-                .background(
-                    Brush.verticalGradient(
-                        colors = listOf(Color(0xFF8B5330), Color(0xFF4C2711))
-                    )
-                )
-        )
+        Spacer(modifier = Modifier.height(10.dp))
 
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
+                .padding(horizontal = 16.dp, vertical = 10.dp),
             horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             familyMembers.forEachIndexed { index, member ->
@@ -886,7 +1077,6 @@ fun PaperHangerRow(
                 val accentColor = if (index % 2 == 0) AmmaPrimary else AppaPrimary
                 val bgColor = if (index % 2 == 0) AmmaSurface else AppaSurface
                 val onTextColor = if (index % 2 == 0) AmmaOnSurface else AppaOnSurface
-                val rotationAngle = if (index % 2 == 0) -2.5f else 2.5f
 
                 HangingClipboard(
                     modifier = Modifier.weight(1f),
@@ -908,7 +1098,7 @@ fun PaperHangerRow(
                     bgColor = bgColor,
                     onTextColor = onTextColor,
                     isSelected = curProfile == member.uid,
-                    rotationAngle = rotationAngle,
+                    rotationAngle = 0f,
                     onClick = { onProfileSelect(member.uid) },
                     testTag = "tab_${member.uid}"
                 )
@@ -930,117 +1120,71 @@ fun HangingClipboard(
     onClick: () -> Unit,
     testTag: String
 ) {
-    val scale by animateFloatAsState(targetValue = if (isSelected) 1.05f else 0.92f, label = "scale")
-    val alpha by animateFloatAsState(targetValue = if (isSelected) 1.0f else 0.65f, label = "alpha")
-    val translationY by animateDpAsState(targetValue = if (isSelected) 8.dp else 0.dp, label = "offset")
-    val rotation by animateFloatAsState(targetValue = if (isSelected) 0f else rotationAngle, label = "rotate")
+    val scale by animateFloatAsState(targetValue = if (isSelected) 1.02f else 0.96f, label = "scale")
+    val alpha by animateFloatAsState(targetValue = if (isSelected) 1.0f else 0.75f, label = "alpha")
+    val translationY by animateDpAsState(targetValue = if (isSelected) (-4).dp else 0.dp, label = "offset")
 
-    Column(
+    Card(
         modifier = modifier
             .graphicsLayer {
                 scaleX = scale
                 scaleY = scale
                 this.translationY = translationY.toPx()
-                rotationZ = rotation
                 this.alpha = alpha
             }
             .clickable(onClick = onClick)
-            .testTag(testTag),
-        horizontalAlignment = Alignment.CenterHorizontally
+            .testTag(testTag)
+            .shadow(
+                elevation = if (isSelected) 6.dp else 2.dp,
+                shape = RoundedCornerShape(16.dp),
+                ambientColor = accentColor.copy(alpha = 0.3f),
+                spotColor = accentColor.copy(alpha = 0.5f)
+            ),
+        colors = CardDefaults.cardColors(containerColor = if (isSelected) bgColor else Color.White),
+        shape = RoundedCornerShape(16.dp),
+        border = BorderStroke(1.5.dp, if (isSelected) accentColor else SoftDivider)
     ) {
-        // Wooden wire hook & bulldog peg clip
-        Box(
-            modifier = Modifier
-                .width(42.dp)
-                .height(28.dp)
-                .drawBehind {
-                    // Draw dual strings
-                    drawLine(
-                        color = Color(0xFF6B6A68),
-                        start = Offset(size.width / 4, -40f),
-                        end = Offset(size.width / 4, 15f),
-                        strokeWidth = 2.5f,
-                        cap = StrokeCap.Round
-                    )
-                    drawLine(
-                        color = Color(0xFF6B6A68),
-                        start = Offset(size.width * 0.75f, -40f),
-                        end = Offset(size.width * 0.75f, 15f),
-                        strokeWidth = 2.5f,
-                        cap = StrokeCap.Round
-                    )
-                    // Draw metallic peg shield/clip plate
-                    drawRoundRect(
-                        color = Color(0xFF8F8D88),
-                        topLeft = Offset(0f, 10f),
-                        size = Size(size.width, size.height - 10f),
-                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(6f, 6f)
-                    )
-                    // peg pivot line
-                    drawLine(
-                        color = Color(0xFF5E5D5A),
-                        start = Offset(0f, size.height * 0.5f),
-                        end = Offset(size.width, size.height * 0.5f),
-                        strokeWidth = 2f
-                    )
-                }
-        )
-
-        // Clip-attached paper sheet
-        Card(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .shadow(
-                    elevation = if (isSelected) 8.dp else 2.dp,
-                    shape = RoundedCornerShape(bottomStart = 16.dp, bottomEnd = 16.dp, topStart = 4.dp, topEnd = 4.dp)
-                ),
-            colors = CardDefaults.cardColors(containerColor = bgColor),
-            shape = RoundedCornerShape(bottomStart = 16.dp, bottomEnd = 16.dp, topStart = 4.dp, topEnd = 4.dp),
-            border = BorderStroke(1.5.dp, if (isSelected) accentColor else SoftDivider)
+                .padding(horizontal = 14.dp, vertical = 16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Column(
+            // Elegant modern indicator: simple clean colored dot
+            Box(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 14.dp, vertical = 14.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
+                    .size(8.dp)
+                    .clip(CircleShape)
+                    .background(if (isSelected) accentColor else PencilGray.copy(alpha = 0.3f))
+            )
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            Text(
+                text = label,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold,
+                fontFamily = FontFamily.SansSerif,
+                color = if (isSelected) onTextColor else PencilCharcoal,
+                textAlign = TextAlign.Center
+            )
+
+            Spacer(modifier = Modifier.height(6.dp))
+
+            // Modern capsule badge for remaining count
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(if (isSelected) accentColor.copy(alpha = 0.15f) else Color(0xFFF1F5F9))
+                    .padding(horizontal = 10.dp, vertical = 4.dp)
             ) {
-                // Pin / peg hole circle
-                Box(
-                    modifier = Modifier
-                        .size(12.dp)
-                        .clip(CircleShape)
-                        .background(Color(0xFFE8DBC0))
-                        .align(Alignment.CenterHorizontally)
-                )
-
-                Spacer(modifier = Modifier.height(8.dp))
-
                 Text(
-                    text = label,
-                    fontSize = 20.sp,
+                    text = countText,
+                    fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
-                    fontFamily = FontFamily.Serif,
-                    color = onTextColor,
-                    textAlign = TextAlign.Center
+                    color = if (isSelected) accentColor else PencilGray,
+                    fontFamily = FontFamily.SansSerif
                 )
-
-                Spacer(modifier = Modifier.height(6.dp))
-
-                // Stamp style visual capsule
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(6.dp))
-                        .background(accentColor.copy(alpha = 0.15f))
-                        .padding(horizontal = 10.dp, vertical = 4.dp)
-                ) {
-                    Text(
-                        text = countText,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = accentColor,
-                        fontFamily = FontFamily.SansSerif
-                    )
-                }
             }
         }
     }
@@ -1053,52 +1197,53 @@ fun TaskCard(
     onToggle: () -> Unit,
     onDelete: () -> Unit
 ) {
-    // Generate static rotation based on task's UUID hashcode
-    val rotation = remember(task.id) { (task.id.hashCode().absoluteValue % 5 - 2) * 0.6f }
+    val ownerAccentColor = if (task.profileOwner == "AMMA" || task.profileOwner == "user_mom") AmmaPrimary else AppaPrimary
+    val ownerBgColor = if (task.profileOwner == "AMMA" || task.profileOwner == "user_mom") AmmaSurface else AppaSurface
+
+    val checkBgColor by animateColorAsState(
+        targetValue = if (task.isCompleted) ownerAccentColor else Color.Transparent,
+        label = "checkBgColor"
+    )
+    val checkBorderColor by animateColorAsState(
+        targetValue = if (task.isCompleted) ownerAccentColor else PencilGray.copy(alpha = 0.4f),
+        label = "checkBorderColor"
+    )
+    val checkScale by animateFloatAsState(
+        targetValue = if (task.isCompleted) 1.0f else 0.9f,
+        label = "checkScale"
+    )
 
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 6.dp)
-            .graphicsLayer { rotationZ = rotation }
             .shadow(
-                elevation = 3.dp,
-                shape = RoundedCornerShape(4.dp)
+                elevation = 2.dp,
+                shape = RoundedCornerShape(12.dp)
             )
             .testTag("task_item_${task.id}"),
         colors = CardDefaults.cardColors(containerColor = PaperCardLight),
-        shape = RoundedCornerShape(4.dp),
+        shape = RoundedCornerShape(12.dp),
         border = BorderStroke(1.dp, SoftDivider)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .drawBehind {
-                    // Typical red notebook margin line on left
-                    drawLine(
-                        color = Color(0xFFDC6662).copy(alpha = 0.7f),
-                        start = Offset(44.dp.toPx(), 0f),
-                        end = Offset(44.dp.toPx(), size.height),
-                        strokeWidth = 2.dp.toPx()
-                    )
-
-                    // Soft graphite ruling lines
-                    val lineSpacing = 28.dp.toPx()
-                    val totalLines = (size.height / lineSpacing).toInt()
-                    for (i in 1..totalLines) {
-                        val y = i * lineSpacing
-                        drawLine(
-                            color = SoftDivider.copy(alpha = 0.4f),
-                            start = Offset(0f, y),
-                            end = Offset(size.width, y),
-                            strokeWidth = 1.dp.toPx()
-                        )
-                    }
-                }
-                .padding(vertical = 14.dp, horizontal = 10.dp),
+                .padding(vertical = 12.dp, horizontal = 12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Massive 48dp check target
+            // Elegant left Owner accent indicator stripe
+            Box(
+                modifier = Modifier
+                    .width(4.dp)
+                    .height(38.dp)
+                    .clip(CircleShape)
+                    .background(ownerAccentColor)
+            )
+
+            Spacer(modifier = Modifier.width(8.dp))
+
+            // Massive 48dp check target with smooth animations
             Box(
                 modifier = Modifier
                     .size(48.dp)
@@ -1109,16 +1254,17 @@ fun TaskCard(
             ) {
                 Box(
                     modifier = Modifier
-                        .size(28.dp)
-                        .drawBehind {
-                            drawCircle(
-                                color = if (task.isCompleted) RedPencil else PencilCharcoal,
-                                radius = size.minDimension / 2,
-                                style = Stroke(
-                                    width = 2.5f,
-                                    cap = StrokeCap.Round
-                                )
-                            )
+                        .size(24.dp)
+                        .clip(CircleShape)
+                        .background(checkBgColor)
+                        .border(
+                            width = 2.dp,
+                            color = checkBorderColor,
+                            shape = CircleShape
+                        )
+                        .graphicsLayer {
+                            scaleX = checkScale
+                            scaleY = checkScale
                         },
                     contentAlignment = Alignment.Center
                 ) {
@@ -1126,46 +1272,53 @@ fun TaskCard(
                         Icon(
                             imageVector = Icons.Default.Check,
                             contentDescription = LocalizedStrings.get("completed_label", language),
-                            tint = RedPencil,
-                            modifier = Modifier.size(20.dp)
+                            tint = Color.White,
+                            modifier = Modifier.size(16.dp)
                         )
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.width(6.dp))
+            Spacer(modifier = Modifier.width(4.dp))
 
-            // Task Header and Created metadata in column
+            // Task title and styled badge row
             Column(
                 modifier = Modifier
                     .weight(1f)
-                    .padding(vertical = 4.dp, horizontal = 4.dp)
+                    .padding(vertical = 2.dp, horizontal = 4.dp)
             ) {
                 Text(
                     text = task.title,
-                    fontSize = 19.sp,
-                    lineHeight = 24.sp,
-                    fontFamily = FontFamily.Serif,
+                    fontSize = 17.sp,
+                    lineHeight = 22.sp,
+                    fontFamily = FontFamily.SansSerif,
                     fontWeight = FontWeight.Medium,
-                    color = if (task.isCompleted) PencilGray.copy(alpha = 0.51f) else PencilCharcoal,
+                    color = if (task.isCompleted) PencilGray.copy(alpha = 0.55f) else PencilCharcoal,
                     textDecoration = if (task.isCompleted) TextDecoration.LineThrough else TextDecoration.None,
                     modifier = Modifier.fillMaxWidth()
                 )
                 
-                // Real-time added/completed member tags
+                // Real-time added/completed member premium badge pills
                 if (task.createdByName.isNotBlank() || task.completedByName?.isNotBlank() == true) {
-                    Spacer(modifier = Modifier.height(3.dp))
-                    Text(
-                        text = if (task.isCompleted && task.completedByName != null) {
-                            String.format(LocalizedStrings.get("completed_by", language), task.completedByName)
-                        } else {
-                            String.format(LocalizedStrings.get("added_by", language), task.createdByName)
-                        },
-                        fontSize = 11.sp,
-                        fontFamily = FontFamily.SansSerif,
-                        fontWeight = FontWeight.Bold,
-                        color = if (task.isCompleted) PencilGray.copy(alpha = 0.6f) else if (task.profileOwner == "AMMA") AmmaPrimary.copy(alpha = 0.8f) else AppaPrimary.copy(alpha = 0.8f)
-                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(ownerBgColor)
+                            .padding(horizontal = 8.dp, vertical = 3.dp)
+                    ) {
+                        Text(
+                            text = if (task.isCompleted && task.completedByName != null) {
+                                String.format(LocalizedStrings.get("completed_by", language), task.completedByName)
+                            } else {
+                                String.format(LocalizedStrings.get("added_by", language), task.createdByName)
+                            },
+                            fontSize = 11.sp,
+                            fontFamily = FontFamily.SansSerif,
+                            fontWeight = FontWeight.Bold,
+                            color = ownerAccentColor
+                        )
+                    }
                 }
             }
 
@@ -1182,7 +1335,7 @@ fun TaskCard(
                     imageVector = Icons.Default.Delete,
                     contentDescription = "Delete memo",
                     tint = RedPencil.copy(alpha = 0.8f),
-                    modifier = Modifier.size(24.dp)
+                    modifier = Modifier.size(20.dp)
                 )
             }
         }
@@ -1198,9 +1351,9 @@ fun EmptyPaperNote(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 20.dp, vertical = 24.dp),
-        colors = CardDefaults.cardColors(containerColor = PaperCardLight.copy(alpha = 0.6f)),
-        shape = RoundedCornerShape(8.dp),
-        border = BorderStroke(1.dp, SoftDivider.copy(alpha = 0.6f))
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        shape = RoundedCornerShape(16.dp),
+        border = BorderStroke(1.dp, SoftDivider)
     ) {
         Column(
             modifier = Modifier
@@ -1208,23 +1361,32 @@ fun EmptyPaperNote(
                 .padding(vertical = 40.dp, horizontal = 24.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Drawn empty peg slot
+            // High-end glowing empty state icon
             Box(
                 modifier = Modifier
-                    .size(16.dp)
+                    .size(56.dp)
                     .clip(CircleShape)
-                    .background(Color(0xFFE8DBC0))
-            )
+                    .background(accentColor.copy(alpha = 0.1f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Check,
+                    contentDescription = null,
+                    tint = accentColor,
+                    modifier = Modifier.size(28.dp)
+                )
+            }
 
-            Spacer(modifier = Modifier.height(18.dp))
+            Spacer(modifier = Modifier.height(20.dp))
 
             Text(
                 text = message,
-                fontSize = 18.sp,
-                fontFamily = FontFamily.Serif,
+                fontSize = 16.sp,
+                fontFamily = FontFamily.SansSerif,
+                fontWeight = FontWeight.Medium,
                 color = PencilGray,
                 textAlign = TextAlign.Center,
-                lineHeight = 24.sp
+                lineHeight = 22.sp
             )
         }
     }
@@ -1239,27 +1401,47 @@ fun CompletedHeaderSection(
 ) {
     Row(
         modifier = Modifier
+            .padding(horizontal = 16.dp, vertical = 8.dp)
             .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(Color(0xFFF1F5F9))
             .clickable(onClick = onClick)
-            .padding(horizontal = 24.dp, vertical = 12.dp),
+            .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.Center
+        horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        Icon(
-            imageVector = Icons.Default.Check,
-            contentDescription = null,
-            tint = AppaPrimary,
-            modifier = Modifier.size(16.dp)
-        )
-        Spacer(modifier = Modifier.width(8.dp))
-        Text(
-            text = "${LocalizedStrings.get("completed_title", language)} ($count)",
-            fontSize = 16.sp,
-            fontWeight = FontWeight.Bold,
-            fontFamily = FontFamily.Serif,
-            color = PencilGray,
-            textDecoration = TextDecoration.Underline
-        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(
+                imageVector = Icons.Default.Check,
+                contentDescription = null,
+                tint = PencilGray,
+                modifier = Modifier.size(16.dp)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = LocalizedStrings.get("completed_title", language),
+                fontSize = 15.sp,
+                fontWeight = FontWeight.SemiBold,
+                fontFamily = FontFamily.SansSerif,
+                color = PencilCharcoal
+            )
+        }
+        
+        // Count badge pill
+        Box(
+            modifier = Modifier
+                .clip(CircleShape)
+                .background(PencilGray.copy(alpha = 0.2f))
+                .padding(horizontal = 10.dp, vertical = 4.dp)
+        ) {
+            Text(
+                text = count.toString(),
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold,
+                color = PencilCharcoal,
+                fontFamily = FontFamily.SansSerif
+            )
+        }
     }
 }
 
@@ -1286,22 +1468,52 @@ fun AddTaskDialog(
         focusRequester.requestFocus()
     }
 
+    val isMom = profile == "AMMA" || profile == "user_mom"
+    val themeColor = if (isMom) AmmaPrimary else AppaPrimary
+    val themeSurfaceColor = if (isMom) AmmaSurface else AppaSurface
+
+    // Mic soundwave pulse transition
+    val infiniteTransition = rememberInfiniteTransition(label = "pulse")
+    val pulseScale by infiniteTransition.animateFloat(
+        initialValue = 1.0f,
+        targetValue = 1.35f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1200, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "pulseScale"
+    )
+    val pulseAlpha by infiniteTransition.animateFloat(
+        initialValue = 0.4f,
+        targetValue = 0.0f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1200, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "pulseAlpha"
+    )
+
     Dialog(onDismissRequest = onDismiss) {
         Card(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(vertical = 8.dp)
-                .shadow(12.dp, shape = RoundedCornerShape(12.dp)),
-            colors = CardDefaults.cardColors(containerColor = PaperCardLight),
-            shape = RoundedCornerShape(12.dp),
-            border = BorderStroke(2.dp, if (profile == "AMMA") AmmaPrimary else AppaPrimary)
+                .shadow(
+                    elevation = 16.dp,
+                    shape = RoundedCornerShape(24.dp),
+                    ambientColor = themeColor.copy(alpha = 0.2f),
+                    spotColor = themeColor.copy(alpha = 0.3f)
+                ),
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            shape = RoundedCornerShape(24.dp),
+            border = BorderStroke(1.5.dp, themeColor.copy(alpha = 0.5f))
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(20.dp)
+                    .padding(24.dp)
             ) {
-                // Header of notepad popup
+                // Header of the modern dialog
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -1309,104 +1521,148 @@ fun AddTaskDialog(
                 ) {
                     Text(
                         text = LocalizedStrings.get("add_task", language),
-                        fontSize = 22.sp,
-                        fontWeight = FontWeight.Bold,
-                        fontFamily = FontFamily.Serif,
-                        color = PencilCharcoal
+                        style = MaterialTheme.typography.titleLarge.copy(
+                            fontSize = 22.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = PencilCharcoal
+                        )
                     )
 
-                    // Profile label pill
+                    // Profile label badge pill
                     Box(
                         modifier = Modifier
-                            .clip(RoundedCornerShape(6.dp))
-                            .background(
-                                if (profile == "AMMA") AmmaPrimary.copy(alpha = 0.15f)
-                                else AppaPrimary.copy(alpha = 0.15f)
-                            )
-                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(themeColor.copy(alpha = 0.12f))
+                            .padding(horizontal = 10.dp, vertical = 6.dp)
                     ) {
                         Text(
-                            text = if (profile == "AMMA") {
+                            text = if (isMom) {
                                 LocalizedStrings.get("amma", language)
                             } else {
                                 LocalizedStrings.get("appa", language)
                             },
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = if (profile == "AMMA") AmmaPrimary else AppaPrimary,
-                            fontFamily = FontFamily.SansSerif
+                            style = MaterialTheme.typography.labelMedium.copy(
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = themeColor
+                            )
                         )
                     }
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(18.dp))
 
-                // Notebook styled text field
+                // Premium Outlined Text Field
                 OutlinedTextField(
                     value = textState,
                     onValueChange = { textState = it },
                     placeholder = {
                         Text(
                             text = LocalizedStrings.get("enter_task_hint", language),
-                            fontSize = 18.sp,
-                            color = PencilGray.copy(alpha = 0.6f),
-                            fontFamily = FontFamily.Serif
+                            style = MaterialTheme.typography.bodyLarge.copy(
+                                fontSize = 16.sp,
+                                color = PencilGray.copy(alpha = 0.5f)
+                            )
                         )
                     },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(140.dp)
+                        .height(130.dp)
                         .focusRequester(focusRequester)
                         .testTag("add_task_input"),
-                    textStyle = TextStyle(
-                        fontSize = 20.sp,
+                    textStyle = MaterialTheme.typography.bodyLarge.copy(
+                        fontSize = 17.sp,
                         color = PencilCharcoal,
-                        fontFamily = FontFamily.Serif,
-                        lineHeight = 26.sp
+                        lineHeight = 24.sp
                     ),
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = if (profile == "AMMA") AmmaPrimary else AppaPrimary,
+                        focusedBorderColor = themeColor,
                         unfocusedBorderColor = SoftDivider,
-                        focusedContainerColor = Color.White,
-                        unfocusedContainerColor = Color.White
+                        focusedContainerColor = Color(0xFFF8FAFC),
+                        unfocusedContainerColor = Color(0xFFF8FAFC),
+                        focusedTextColor = PencilCharcoal,
+                        unfocusedTextColor = PencilCharcoal
                     ),
-                    shape = RoundedCornerShape(8.dp)
+                    shape = RoundedCornerShape(16.dp)
                 )
 
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(16.dp))
 
-                // Voice assistant typing hint box
+                // Voice assistant pulsing hint box
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(Color(0xFFFCF7ED))
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(
+                            Brush.linearGradient(
+                                colors = listOf(themeSurfaceColor, Color.White)
+                            )
+                        )
+                        .border(
+                            width = 1.dp,
+                            color = themeColor.copy(alpha = 0.2f),
+                            shape = RoundedCornerShape(16.dp)
+                        )
                         .clickable(onClick = onVoiceClick)
-                        .padding(12.dp),
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    CustomMicIcon(
-                        color = if (profile == "AMMA") AmmaPrimary else AppaPrimary,
-                        modifier = Modifier.size(28.dp)
-                    )
-                    Spacer(modifier = Modifier.width(12.dp))
+                    // Pulsing microphone container
+                    Box(
+                        modifier = Modifier.size(44.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        // Glowing pulsing wave circle
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .graphicsLayer {
+                                    scaleX = pulseScale
+                                    scaleY = pulseScale
+                                    alpha = pulseAlpha
+                                }
+                                .background(
+                                    color = themeColor.copy(alpha = 0.35f),
+                                    shape = CircleShape
+                                )
+                        )
+
+                        // Base inner circle
+                        Box(
+                            modifier = Modifier
+                                .size(32.dp)
+                                .background(themeColor.copy(alpha = 0.15f), shape = CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            CustomMicIcon(
+                                color = themeColor,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.width(14.dp))
+
                     Column(modifier = Modifier.weight(1.0f)) {
                         Text(
                             text = LocalizedStrings.get("voice_hint", language),
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = PencilCharcoal,
-                            fontFamily = FontFamily.SansSerif
+                            style = MaterialTheme.typography.titleMedium.copy(
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = PencilCharcoal
+                            )
                         )
+                        Spacer(modifier = Modifier.height(2.dp))
                         Text(
                             text = if (language == Language.EN) {
                                 "Just tap and speak clearly in English or Tamil!"
                             } else {
                                 "இதனைத் தட்டி தமிழ் அல்லது ஆங்கிலத்தில் கூறவும்!"
                             },
-                            fontSize = 11.sp,
-                            color = PencilGray,
-                            fontFamily = FontFamily.SansSerif
+                            style = MaterialTheme.typography.bodyMedium.copy(
+                                fontSize = 11.sp,
+                                color = PencilGray
+                            )
                         )
                     }
                 }
@@ -1422,17 +1678,19 @@ fun AddTaskDialog(
                         onClick = onDismiss,
                         modifier = Modifier
                             .weight(1f)
-                            .height(54.dp)
+                            .height(50.dp)
                             .testTag("add_task_cancel"),
                         border = BorderStroke(1.5.dp, SoftDivider),
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = PencilCharcoal),
-                        shape = RoundedCornerShape(8.dp)
+                        shape = RoundedCornerShape(14.dp)
                     ) {
                         Text(
                             text = LocalizedStrings.get("cancel", language),
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Bold,
-                            fontFamily = FontFamily.SansSerif
+                            style = MaterialTheme.typography.bodyMedium.copy(
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = PencilCharcoal
+                            )
                         )
                     }
 
@@ -1445,19 +1703,28 @@ fun AddTaskDialog(
                         enabled = textState.isNotBlank(),
                         modifier = Modifier
                             .weight(1f)
-                            .height(54.dp)
+                            .height(50.dp)
+                            .shadow(
+                                elevation = if (textState.isNotBlank()) 4.dp else 0.dp,
+                                shape = RoundedCornerShape(14.dp),
+                                ambientColor = themeColor.copy(alpha = 0.3f),
+                                spotColor = themeColor.copy(alpha = 0.5f)
+                            )
                             .testTag("add_task_save"),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = if (profile == "AMMA") AmmaPrimary else AppaPrimary,
-                            contentColor = Color.White
+                            containerColor = themeColor,
+                            contentColor = Color.White,
+                            disabledContainerColor = themeColor.copy(alpha = 0.4f)
                         ),
-                        shape = RoundedCornerShape(8.dp)
+                        shape = RoundedCornerShape(14.dp)
                     ) {
                         Text(
                             text = LocalizedStrings.get("save", language),
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Bold,
-                            fontFamily = FontFamily.SansSerif
+                            style = MaterialTheme.typography.bodyMedium.copy(
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
+                            )
                         )
                     }
                 }
@@ -1477,38 +1744,58 @@ fun DeleteConfirmDialog(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(8.dp)
-                .shadow(8.dp),
-            colors = CardDefaults.cardColors(containerColor = PaperCardLight),
-            shape = RoundedCornerShape(12.dp),
-            border = BorderStroke(1.5.dp, SoftDivider)
+                .shadow(
+                    elevation = 16.dp,
+                    shape = RoundedCornerShape(24.dp),
+                    ambientColor = RedPencil.copy(alpha = 0.2f),
+                    spotColor = RedPencil.copy(alpha = 0.3f)
+                ),
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            shape = RoundedCornerShape(24.dp),
+            border = BorderStroke(1.5.dp, RedPencil.copy(alpha = 0.3f))
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(20.dp),
+                    .padding(24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Warning note pin
+                // Modern glowing danger trash icon
                 Box(
                     modifier = Modifier
-                        .size(14.dp)
-                        .clip(CircleShape)
-                        .background(RedPencil)
-                )
+                        .size(60.dp)
+                        .background(RedPencil.copy(alpha = 0.12f), shape = CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(42.dp)
+                            .background(RedPencil.copy(alpha = 0.18f), shape = CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Delete,
+                            contentDescription = null,
+                            tint = RedPencil,
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
+                }
 
-                Spacer(modifier = Modifier.height(14.dp))
+                Spacer(modifier = Modifier.height(20.dp))
 
                 Text(
                     text = LocalizedStrings.get("delete_confirm", language),
-                    fontSize = 20.sp,
-                    fontFamily = FontFamily.Serif,
-                    fontWeight = FontWeight.Bold,
-                    color = PencilCharcoal,
-                    textAlign = TextAlign.Center,
-                    lineHeight = 26.sp
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = PencilCharcoal,
+                        textAlign = TextAlign.Center,
+                        lineHeight = 24.sp
+                    )
                 )
 
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(28.dp))
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -1518,17 +1805,19 @@ fun DeleteConfirmDialog(
                         onClick = onDismiss,
                         modifier = Modifier
                             .weight(1f)
-                            .height(52.dp)
+                            .height(50.dp)
                             .testTag("delete_confirm_cancel"),
                         border = BorderStroke(1.5.dp, SoftDivider),
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = PencilCharcoal),
-                        shape = RoundedCornerShape(8.dp)
+                        shape = RoundedCornerShape(14.dp)
                     ) {
                         Text(
                             text = LocalizedStrings.get("delete_no", language),
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.Bold,
-                            fontFamily = FontFamily.SansSerif
+                            style = MaterialTheme.typography.bodyMedium.copy(
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = PencilCharcoal
+                            )
                         )
                     }
 
@@ -1536,19 +1825,27 @@ fun DeleteConfirmDialog(
                         onClick = onConfirm,
                         modifier = Modifier
                             .weight(1f)
-                            .height(52.dp)
+                            .height(50.dp)
+                            .shadow(
+                                elevation = 6.dp,
+                                shape = RoundedCornerShape(14.dp),
+                                ambientColor = RedPencil.copy(alpha = 0.3f),
+                                spotColor = RedPencil.copy(alpha = 0.5f)
+                            )
                             .testTag("delete_confirm_ok"),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = RedPencil,
                             contentColor = Color.White
                         ),
-                        shape = RoundedCornerShape(8.dp)
+                        shape = RoundedCornerShape(14.dp)
                     ) {
                         Text(
                             text = LocalizedStrings.get("delete_yes", language),
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.Bold,
-                            fontFamily = FontFamily.SansSerif
+                            style = MaterialTheme.typography.bodyMedium.copy(
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
+                            )
                         )
                     }
                 }
