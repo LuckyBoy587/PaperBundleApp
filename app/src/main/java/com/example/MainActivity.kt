@@ -230,94 +230,6 @@ fun GoogleLoginScreen(viewModel: TaskViewModel) {
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            Text(
-                text = LocalizedStrings.get("or_label", language),
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Bold,
-                color = PencilGray,
-                fontFamily = FontFamily.SansSerif
-            )
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // Sandbox Accounts Selection (For family testing)
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = PaperCardLight),
-                border = BorderStroke(1.dp, SoftDivider),
-                shape = RoundedCornerShape(16.dp)
-            ) {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text(
-                        text = LocalizedStrings.get("choose_user_profile", language),
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = PencilCharcoal,
-                        fontFamily = FontFamily.SansSerif,
-                        modifier = Modifier.padding(bottom = 12.dp)
-                    )
-
-                    // Buttons to log in as Mom, Dad, or Son directly (High-fidelity testing)
-                    FirebaseSyncManager.sandboxUsers.forEach { mockUser ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 6.dp)
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(Color.White)
-                                .clickable {
-                                    viewModel.loginWithGoogleProfile(
-                                        context,
-                                        mockUser.name,
-                                        mockUser.email,
-                                        mockUser.photoUrl
-                                    ) {}
-                                }
-                                .padding(12.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(36.dp)
-                                    .clip(CircleShape)
-                                    .background(
-                                        if (mockUser.name.contains("Mom")) AmmaPrimary.copy(alpha = 0.2f)
-                                        else if (mockUser.name.contains("Dad")) AppaPrimary.copy(alpha = 0.2f)
-                                        else Color(0xFFE8DBC0)
-                                    ),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = mockUser.name.first().toString(),
-                                    fontSize = 16.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = if (mockUser.name.contains("Mom")) AmmaPrimary else if (mockUser.name.contains("Dad")) AppaPrimary else PencilCharcoal
-                                )
-                            }
-
-                            Spacer(modifier = Modifier.width(12.dp))
-
-                            Column {
-                                Text(
-                                    text = mockUser.name,
-                                    fontSize = 15.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = PencilCharcoal
-                                )
-                                Text(
-                                    text = mockUser.email,
-                                    fontSize = 12.sp,
-                                    color = PencilGray
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-
             if (authLoading) {
                 Spacer(modifier = Modifier.height(16.dp))
                 CircularProgressIndicator(color = AmmaPrimary)
@@ -581,17 +493,17 @@ fun SharedFamilyBoardScreen(viewModel: TaskViewModel, session: UserSession) {
     val curProfile by viewModel.curProfile.collectAsState()
     val activeTasks by viewModel.tasks.collectAsState()
     val allTasks by viewModel.allTasks.collectAsState()
+    val familyMembers by viewModel.familyMembers.collectAsState()
 
     var isAddingTask by remember { mutableStateOf(false) }
     var taskToDelete by remember { mutableStateOf<Task?>(null) }
     var completedExpanded by remember { mutableStateOf(false) }
 
     // Aggregate counts dynamically
-    val pendingAmmaCount = remember(allTasks) {
-        allTasks.count { it.profileOwner == "AMMA" && !it.isCompleted }
-    }
-    val pendingAppaCount = remember(allTasks) {
-        allTasks.count { it.profileOwner == "APPA" && !it.isCompleted }
+    val memberPendingCounts = remember(allTasks, familyMembers) {
+        familyMembers.associate { member ->
+            member.uid to allTasks.count { it.profileOwner == member.uid && !it.isCompleted }
+        }
     }
 
     // Split active profile's tasks into Pending vs Completed
@@ -646,6 +558,9 @@ fun SharedFamilyBoardScreen(viewModel: TaskViewModel, session: UserSession) {
         }
     }
 
+    val selectedIndex = familyMembers.indexOfFirst { it.uid == curProfile }
+    val activeTabColor = if (selectedIndex >= 0 && selectedIndex % 2 == 0) AmmaPrimary else AppaPrimary
+
     Scaffold(
         modifier = Modifier
             .fillMaxSize()
@@ -669,7 +584,7 @@ fun SharedFamilyBoardScreen(viewModel: TaskViewModel, session: UserSession) {
                     .padding(16.dp)
                     .size(72.dp)
                     .testTag("add_task_fab"),
-                containerColor = if (curProfile == "AMMA") AmmaPrimary else AppaPrimary,
+                containerColor = activeTabColor,
                 contentColor = Color.White,
                 shape = CircleShape,
                 elevation = FloatingActionButtonDefaults.elevation(8.dp)
@@ -687,13 +602,13 @@ fun SharedFamilyBoardScreen(viewModel: TaskViewModel, session: UserSession) {
                 .fillMaxSize()
                 .padding(innerPadding)
         ) {
-            // Physical paper bundle hanger selector (Amma vs Appa tabs)
+            // Physical paper bundle hanger selector (Dynamic Hanger Tabs)
             PaperHangerRow(
                 language = language,
                 curProfile = curProfile,
                 onProfileSelect = { viewModel.setProfile(it) },
-                pendingAmmaCount = pendingAmmaCount,
-                pendingAppaCount = pendingAppaCount
+                familyMembers = familyMembers,
+                memberPendingCounts = memberPendingCounts
             )
 
             // Current Active Task List Scrollable Board
@@ -708,13 +623,11 @@ fun SharedFamilyBoardScreen(viewModel: TaskViewModel, session: UserSession) {
                 ) {
                     if (pendingTasksList.isEmpty()) {
                         item {
+                            val activeMember = familyMembers.find { it.uid == curProfile }
+                            val activeMemberName = activeMember?.name?.substringBefore(" ") ?: "Member"
                             EmptyPaperNote(
-                                message = if (curProfile == "AMMA") {
-                                    LocalizedStrings.get("no_pending_amma", language)
-                                } else {
-                                    LocalizedStrings.get("no_pending_appa", language)
-                                },
-                                accentColor = if (curProfile == "AMMA") AmmaPrimary else AppaPrimary
+                                message = String.format(LocalizedStrings.get("no_pending_member", language), activeMemberName),
+                                accentColor = activeTabColor
                             )
                         }
                     } else {
@@ -946,8 +859,8 @@ fun PaperHangerRow(
     language: Language,
     curProfile: String,
     onProfileSelect: (String) -> Unit,
-    pendingAmmaCount: Int,
-    pendingAppaCount: Int
+    familyMembers: List<com.example.util.FamilyMember>,
+    memberPendingCounts: Map<String, Int>
 ) {
     Column {
         // Wooden hanging rod
@@ -968,45 +881,38 @@ fun PaperHangerRow(
                 .padding(horizontal = 16.dp, vertical = 12.dp),
             horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Amma's physical pad card
-            HangingClipboard(
-                modifier = Modifier.weight(1f),
-                label = LocalizedStrings.get("amma_bundle", language),
-                countText = if (pendingAmmaCount == 0) {
-                    LocalizedStrings.get("remaining_none", language)
-                } else if (pendingAmmaCount == 1) {
-                    LocalizedStrings.get("remaining_count_singular", language)
-                } else {
-                    String.format(LocalizedStrings.get("remaining_count", language), pendingAmmaCount)
-                },
-                accentColor = AmmaPrimary,
-                bgColor = AmmaSurface,
-                onTextColor = AmmaOnSurface,
-                isSelected = curProfile == "AMMA",
-                rotationAngle = -2.5f,
-                onClick = { onProfileSelect("AMMA") },
-                testTag = "tab_amma"
-            )
+            familyMembers.forEachIndexed { index, member ->
+                val pendingCount = memberPendingCounts[member.uid] ?: 0
+                val accentColor = if (index % 2 == 0) AmmaPrimary else AppaPrimary
+                val bgColor = if (index % 2 == 0) AmmaSurface else AppaSurface
+                val onTextColor = if (index % 2 == 0) AmmaOnSurface else AppaOnSurface
+                val rotationAngle = if (index % 2 == 0) -2.5f else 2.5f
 
-            // Appa's physical pad card
-            HangingClipboard(
-                modifier = Modifier.weight(1f),
-                label = LocalizedStrings.get("appa_bundle", language),
-                countText = if (pendingAppaCount == 0) {
-                    LocalizedStrings.get("remaining_none", language)
-                } else if (pendingAppaCount == 1) {
-                    LocalizedStrings.get("remaining_count_singular", language)
-                } else {
-                    String.format(LocalizedStrings.get("remaining_count", language), pendingAppaCount)
-                },
-                accentColor = AppaPrimary,
-                bgColor = AppaSurface,
-                onTextColor = AppaOnSurface,
-                isSelected = curProfile == "APPA",
-                rotationAngle = 2.5f,
-                onClick = { onProfileSelect("APPA") },
-                testTag = "tab_appa"
-            )
+                HangingClipboard(
+                    modifier = Modifier.weight(1f),
+                    label = if (member.name.contains(" (Amma)") || member.name.contains(" (Appa)") || member.name.contains(" (Kowshik)")) {
+                        member.name.substringBefore(" (")
+                    } else if (member.name.contains(" ")) {
+                        member.name.substringBefore(" ")
+                    } else {
+                        member.name
+                    },
+                    countText = if (pendingCount == 0) {
+                        LocalizedStrings.get("remaining_none", language)
+                    } else if (pendingCount == 1) {
+                        LocalizedStrings.get("remaining_count_singular", language)
+                    } else {
+                        String.format(LocalizedStrings.get("remaining_count", language), pendingCount)
+                    },
+                    accentColor = accentColor,
+                    bgColor = bgColor,
+                    onTextColor = onTextColor,
+                    isSelected = curProfile == member.uid,
+                    rotationAngle = rotationAngle,
+                    onClick = { onProfileSelect(member.uid) },
+                    testTag = "tab_${member.uid}"
+                )
+            }
         }
     }
 }

@@ -28,6 +28,13 @@ data class UserSession(
     val familyInviteCode: String? = null
 )
 
+data class FamilyMember(
+    val uid: String,
+    val name: String,
+    val email: String,
+    val photoUrl: String
+)
+
 object FirebaseSyncManager {
     private const val TAG = "FirebaseSyncManager"
     private const val PREFS_NAME = "PaperBundleFirebasePrefs"
@@ -45,7 +52,11 @@ object FirebaseSyncManager {
     private val _currentUserSession = MutableStateFlow<UserSession?>(null)
     val currentUserSession: MutableStateFlow<UserSession?> get() = _currentUserSession
 
+    private val _familyMembers = MutableStateFlow<List<FamilyMember>>(emptyList())
+    val familyMembers: MutableStateFlow<List<FamilyMember>> get() = _familyMembers
+
     private var activeListener: ListenerRegistration? = null
+    private var memberListener: ListenerRegistration? = null
     private val ioScope = CoroutineScope(Dispatchers.IO)
 
     // Check if Firebase is configured in BuildConfig
@@ -100,7 +111,7 @@ object FirebaseSyncManager {
             val familyName = prefs.getString("familyName", null)
             val inviteCode = prefs.getString("familyInviteCode", null)
 
-            _currentUserSession.value = UserSession(
+            val session = UserSession(
                 uid = uid,
                 name = name,
                 email = email,
@@ -109,6 +120,8 @@ object FirebaseSyncManager {
                 familyName = familyName,
                 familyInviteCode = inviteCode
             )
+            _currentUserSession.value = session
+            _familyMembers.value = listOf(FamilyMember(uid, name, email, photoUrl))
         }
     }
 
@@ -124,8 +137,10 @@ object FirebaseSyncManager {
             edit.putString("familyId", session.familyId)
             edit.putString("familyName", session.familyName)
             edit.putString("familyInviteCode", session.familyInviteCode)
+            _familyMembers.value = listOf(FamilyMember(session.uid, session.name, session.email, session.photoUrl))
         } else {
             edit.clear()
+            _familyMembers.value = emptyList()
             stopSyncing()
         }
         edit.apply()
@@ -352,12 +367,38 @@ object FirebaseSyncManager {
                         }
                     }
                 }
+
+            memberListener = db.collection("families").document(familyId).collection("members")
+                .addSnapshotListener { snapshot, error ->
+                    if (error != null) {
+                        Log.e(TAG, "Sync observation of members failed", error)
+                        return@addSnapshotListener
+                    }
+                    if (snapshot != null) {
+                        val members = snapshot.documents.mapNotNull { doc ->
+                            try {
+                                val uid = doc.getString("uid") ?: doc.id
+                                val name = doc.getString("name") ?: "Member"
+                                val email = doc.getString("email") ?: ""
+                                val photoUrl = doc.getString("photoUrl") ?: ""
+                                FamilyMember(uid, name, email, photoUrl)
+                            } catch (e: Exception) {
+                                null
+                            }
+                        }
+                        if (members.isNotEmpty()) {
+                            _familyMembers.value = members
+                        }
+                    }
+                }
         }
     }
 
     fun stopSyncing() {
         activeListener?.remove()
         activeListener = null
+        memberListener?.remove()
+        memberListener = null
     }
 
     // Push local edits or newly created notes to Cloud Firestore

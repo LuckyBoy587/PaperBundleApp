@@ -32,13 +32,16 @@ class TaskViewModel(
         Language.valueOf(prefs.getString("Language", Language.EN.name) ?: Language.EN.name)
     )
 
-    // Selected profile owner (AMMA or APPA)
+    // Selected profile owner (defaults to user's UID or empty)
     val curProfile = MutableStateFlow(
-        prefs.getString("Profile", "AMMA") ?: "AMMA"
+        prefs.getString("Profile", "") ?: ""
     )
 
     // Expose User Session State Flow directly from Sync Manager
     val currentUserSession = FirebaseSyncManager.currentUserSession
+
+    // Expose family members State Flow directly from Sync Manager
+    val familyMembers = FirebaseSyncManager.familyMembers
 
     // Loading & error status for sync and setup actions
     val authLoading = MutableStateFlow(false)
@@ -50,8 +53,27 @@ class TaskViewModel(
             FirebaseSyncManager.currentUserSession.collect { session ->
                 if (session?.familyId != null) {
                     FirebaseSyncManager.startSyncing(repository.taskDao)
+                    // If no active profile is selected, or if the current profile is still AMMA/APPA,
+                    // default to the user's own UID
+                    val savedProfile = prefs.getString("Profile", "") ?: ""
+                    if (savedProfile.isEmpty() || savedProfile == "AMMA" || savedProfile == "APPA") {
+                        val defaultProfile = session.uid
+                        curProfile.value = defaultProfile
+                        prefs.edit().putString("Profile", defaultProfile).apply()
+                    }
                 } else {
                     FirebaseSyncManager.stopSyncing()
+                }
+            }
+        }
+
+        viewModelScope.launch {
+            FirebaseSyncManager.familyMembers.collect { members ->
+                // If current profile is not in the list of family members, and members list is not empty
+                if (members.isNotEmpty() && members.none { it.uid == curProfile.value }) {
+                    val defaultProfile = members.first().uid
+                    curProfile.value = defaultProfile
+                    prefs.edit().putString("Profile", defaultProfile).apply()
                 }
             }
         }
