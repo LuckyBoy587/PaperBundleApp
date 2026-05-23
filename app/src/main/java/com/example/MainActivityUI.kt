@@ -61,7 +61,15 @@ import com.example.util.LocalizedStrings
 import com.example.util.UserSession
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.common.api.ApiException
-import kotlin.math.max
+import kotlinx.coroutines.launch
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.rememberDraggableState
+
+
 
 // Stitch Dashboard Colors
 val StitchBg = Color(0xFFF1F5F9) // Premium Modern Slate-100 app background (for gorgeous contrast with white sheets)
@@ -236,7 +244,7 @@ fun SharedFamilyBoardScreen(viewModel: TaskViewModel, session: UserSession) {
     var isAddingTask by remember { mutableStateOf(false) }
     var taskToDelete by remember { mutableStateOf<Task?>(null) }
     var showProfileSelector by remember { mutableStateOf(false) }
-    var taskFilter by remember { mutableStateOf("All") }
+    var isCompletedSheetOpen by remember { mutableStateOf(false) }
 
     // Speech-to-Text Setup
     var voiceTextForInput by remember { mutableStateOf("") }
@@ -267,12 +275,8 @@ fun SharedFamilyBoardScreen(viewModel: TaskViewModel, session: UserSession) {
         }
     }
 
-    val filteredTasks = remember(activeTasks, taskFilter) {
-        when (taskFilter) {
-            "Pending" -> activeTasks.filter { !it.isCompleted }
-            "Completed" -> activeTasks.filter { it.isCompleted }
-            else -> activeTasks
-        }
+    val filteredTasks = remember(activeTasks) {
+        activeTasks.filter { !it.isCompleted }
     }
 
     val activeMember = familyMembers.find { it.uid == curProfile }
@@ -336,10 +340,7 @@ fun SharedFamilyBoardScreen(viewModel: TaskViewModel, session: UserSession) {
                         .clip(RoundedCornerShape(20.dp))
                         .background(Color.White)
                 ) {
-                    TasksSectionHeader(
-                        currentFilter = taskFilter,
-                        onFilterChange = { taskFilter = it }
-                    )
+                    TasksSectionHeader()
                 }
 
                 Spacer(modifier = Modifier.height(12.dp))
@@ -352,11 +353,7 @@ fun SharedFamilyBoardScreen(viewModel: TaskViewModel, session: UserSession) {
                 ) {
                     if (filteredTasks.isEmpty()) {
                         val activeMemberName = (activeMember?.name ?: "Member").substringBefore(" ")
-                        val emptyMsg = when (taskFilter) {
-                            "Completed" -> "No completed tasks yet."
-                            "Pending" -> String.format(LocalizedStrings.get("no_pending_member", language), activeMemberName)
-                            else -> "No tasks created yet."
-                        }
+                        val emptyMsg = String.format(LocalizedStrings.get("no_pending_member", language), activeMemberName)
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -396,13 +393,90 @@ fun SharedFamilyBoardScreen(viewModel: TaskViewModel, session: UserSession) {
                     }
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // D. Overview Statistics - fit above bottom nav (Fixed)
-                BoardOverviewCard(
-                    pendingCount = activeTasks.count { !it.isCompleted },
-                    completedCount = activeTasks.count { it.isCompleted }
-                )
+                // C. Completed Tasks Pull-up Bar
+                val completedTasksCount = remember(activeTasks) { activeTasks.count { it.isCompleted } }
+                if (completedTasksCount > 0) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp)
+                            .shadow(
+                                elevation = 4.dp,
+                                shape = RoundedCornerShape(16.dp),
+                                ambientColor = Color.Black.copy(alpha = 0.05f),
+                                spotColor = Color.Black.copy(alpha = 0.07f)
+                            )
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(Color.White)
+                            .clickable { isCompletedSheetOpen = true }
+                            .draggable(
+                                orientation = Orientation.Vertical,
+                                state = rememberDraggableState { delta ->
+                                    if (delta < -3f) {
+                                        isCompletedSheetOpen = true
+                                    }
+                                }
+                            )
+                            .padding(horizontal = 16.dp, vertical = 12.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(24.dp)
+                                        .background(Color(0xFFECFDF5), CircleShape),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Check,
+                                        contentDescription = "Completed icon",
+                                        tint = StitchGreen500,
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                }
+                                Text(
+                                    text = "Completed Tasks",
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = StitchSlate800
+                                )
+                            }
+                            
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(100.dp))
+                                        .background(Color(0xFFEEF2FF))
+                                        .padding(horizontal = 8.dp, vertical = 2.dp)
+                                ) {
+                                    Text(
+                                        text = "$completedTasksCount",
+                                        color = StitchIndigo,
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                                // Small pull-up arrow indicator
+                                Text(
+                                    text = "▲",
+                                    fontSize = 10.sp,
+                                    color = StitchSlate500
+                                )
+                            }
+                        }
+                    }
+                }
             }
         }
 
@@ -502,6 +576,197 @@ fun SharedFamilyBoardScreen(viewModel: TaskViewModel, session: UserSession) {
                         fontWeight = FontWeight.Bold,
                         color = StitchSlate500
                     )
+                }
+            }
+        }
+
+        // E. Sliding Completed Tasks Sheet
+        val scrimAlpha by animateFloatAsState(
+            targetValue = if (isCompletedSheetOpen) 0.4f else 0f,
+            animationSpec = tween(durationMillis = 300),
+            label = "scrimAlpha"
+        )
+
+        if (scrimAlpha > 0.01f) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = scrimAlpha))
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null
+                    ) {
+                        isCompletedSheetOpen = false
+                    }
+            )
+        }
+
+        BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+            val density = LocalDensity.current
+            val screenHeightPx = constraints.maxHeight.toFloat()
+            val expandedOffsetPx = screenHeightPx * 0.25f
+            val collapsedOffsetPx = screenHeightPx
+
+            val coroutineScope = rememberCoroutineScope()
+            val sheetOffsetY = remember { Animatable(collapsedOffsetPx) }
+
+            // Sync sheet offset with open/closed state transitions
+            LaunchedEffect(isCompletedSheetOpen, collapsedOffsetPx, expandedOffsetPx) {
+                if (isCompletedSheetOpen) {
+                    sheetOffsetY.animateTo(
+                        targetValue = expandedOffsetPx,
+                        animationSpec = spring(
+                            dampingRatio = Spring.DampingRatioNoBouncy,
+                            stiffness = Spring.StiffnessMediumLow
+                        )
+                    )
+                } else {
+                    sheetOffsetY.animateTo(
+                        targetValue = collapsedOffsetPx,
+                        animationSpec = spring(
+                            dampingRatio = Spring.DampingRatioNoBouncy,
+                            stiffness = Spring.StiffnessMediumLow
+                        )
+                    )
+                }
+            }
+
+            if (sheetOffsetY.value < collapsedOffsetPx) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth()
+                        .height(with(density) { (constraints.maxHeight * 0.75f).toDp() })
+                        .offset {
+                            androidx.compose.ui.unit.IntOffset(0, (sheetOffsetY.value - expandedOffsetPx).toInt())
+                        }
+                        .shadow(
+                            elevation = 24.dp,
+                            shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+                            ambientColor = Color.Black.copy(alpha = 0.08f),
+                            spotColor = Color.Black.copy(alpha = 0.1f)
+                        )
+                        .background(
+                            color = Color.White,
+                            shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
+                        )
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                            onClick = {}
+                        )
+                ) {
+                    Column(modifier = Modifier.fillMaxSize()) {
+                        // Header Area supporting drag/swipe down to close directly from where finger is released
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .draggable(
+                                    orientation = Orientation.Vertical,
+                                    state = rememberDraggableState { delta ->
+                                        if (delta > 0f) {
+                                            coroutineScope.launch {
+                                                sheetOffsetY.snapTo((sheetOffsetY.value + delta).coerceIn(expandedOffsetPx, collapsedOffsetPx))
+                                            }
+                                        }
+                                    },
+                                    onDragStopped = { velocity ->
+                                        if (sheetOffsetY.value > expandedOffsetPx + 120f || velocity > 400f) {
+                                            isCompletedSheetOpen = false
+                                        } else {
+                                            coroutineScope.launch {
+                                                sheetOffsetY.animateTo(
+                                                    targetValue = expandedOffsetPx,
+                                                    animationSpec = spring(
+                                                        dampingRatio = Spring.DampingRatioNoBouncy,
+                                                        stiffness = Spring.StiffnessMediumLow
+                                                    )
+                                                )
+                                            }
+                                        }
+                                    }
+                                )
+                        ) {
+                            // Drag Handle
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(30.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .width(48.dp)
+                                        .height(5.dp)
+                                        .background(Color(0xFFCBD5E1), RoundedCornerShape(100.dp))
+                                )
+                            }
+
+                            // Header
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(start = 24.dp, end = 24.dp, bottom = 12.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "Completed Tasks",
+                                    fontSize = 20.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = StitchSlate800
+                                )
+
+                                IconButton(
+                                    onClick = { isCompletedSheetOpen = false },
+                                    modifier = Modifier.size(32.dp)
+                                ) {
+                                    Text("✕", fontSize = 18.sp, color = StitchSlate500, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        }
+
+                        // Divider
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(1.dp)
+                                .background(StitchBorder)
+                        )
+
+                        // Completed list
+                        val completedTasksList = remember(activeTasks) { activeTasks.filter { it.isCompleted } }
+                        if (completedTasksList.isEmpty()) {
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .fillMaxWidth(),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = "No completed tasks yet.",
+                                    color = StitchSlate500,
+                                    fontSize = 14.sp
+                                )
+                            }
+                        } else {
+                            LazyColumn(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .fillMaxSize(),
+                                verticalArrangement = Arrangement.spacedBy(8.dp),
+                                contentPadding = PaddingValues(horizontal = 4.dp, vertical = 12.dp)
+                            ) {
+                                items(completedTasksList, key = { it.id }) { task ->
+                                    TaskCard(
+                                        task = task,
+                                        onToggle = { viewModel.toggleTaskComplete(task) },
+                                        onDelete = { taskToDelete = task }
+                                    )
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -646,10 +911,7 @@ fun MainHeader(
 }
 
 @Composable
-fun TasksSectionHeader(
-    currentFilter: String,
-    onFilterChange: (String) -> Unit
-) {
+fun TasksSectionHeader() {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -663,38 +925,6 @@ fun TasksSectionHeader(
             fontWeight = FontWeight.Bold,
             color = StitchSlate800
         )
-        
-        Row(
-            modifier = Modifier
-                .background(Color(0xFFE8EBF8), RoundedCornerShape(12.dp))
-                .padding(3.dp),
-            horizontalArrangement = Arrangement.spacedBy(4.dp)
-        ) {
-            val filters = listOf("All", "Pending", "Completed")
-            filters.forEach { filter ->
-                val isSelected = currentFilter == filter
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(if (isSelected) Color.White else Color.Transparent)
-                        .clickable(
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication = null
-                        ) {
-                            onFilterChange(filter)
-                        }
-                        .padding(horizontal = 12.dp, vertical = 6.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = filter,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = if (isSelected) StitchIndigo else Color(0xFF8B95A8)
-                    )
-                }
-            }
-        }
     }
 }
 
@@ -830,185 +1060,7 @@ fun TaskCard(
 
 // StitchHeroBanner removed as Good Day banner is deleted.
 
-@Composable
-fun StitchProgressRing(progress: Float) {
-    Box(
-        modifier = Modifier.size(44.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        Canvas(modifier = Modifier.fillMaxSize()) {
-            val strokeWidth = 4.5.dp.toPx()
-            val diameter = size.minDimension - strokeWidth
-            val topLeft = Offset(
-                (size.width - diameter) / 2,
-                (size.height - diameter) / 2
-            )
-            val arcSize = Size(diameter, diameter)
-            
-            // Draw background track
-            drawArc(
-                color = Color(0xFFF1F5F9),
-                startAngle = 0f,
-                sweepAngle = 360f,
-                useCenter = false,
-                topLeft = topLeft,
-                size = arcSize,
-                style = Stroke(width = strokeWidth)
-            )
-            
-            // Draw progress arc
-            drawArc(
-                color = StitchIndigo,
-                startAngle = -90f,
-                sweepAngle = progress * 360f,
-                useCenter = false,
-                topLeft = topLeft,
-                size = arcSize,
-                style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
-            )
-        }
-        Text(
-            text = "${(progress * 100).toInt()}%",
-            fontSize = 10.sp,
-            fontWeight = FontWeight.Bold,
-            color = StitchRed500
-        )
-    }
-}
 
-@Composable
-fun StitchStatChip(
-    label: String,
-    value: String,
-    tintColor: Color,
-    bgColor: Color,
-    icon: @Composable () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Box(
-        modifier = modifier
-            .height(80.dp)
-            .clip(RoundedCornerShape(16.dp))
-            .background(bgColor)
-            .padding(10.dp)
-    ) {
-        Column(
-            modifier = Modifier.fillMaxSize(),
-            verticalArrangement = Arrangement.SpaceBetween
-        ) {
-            Text(
-                text = label,
-                fontSize = 9.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = tintColor
-            )
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.Bottom
-            ) {
-                Text(
-                    text = value,
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = StitchSlate800
-                )
-                Box(
-                    modifier = Modifier
-                        .size(20.dp)
-                        .background(Color.White, CircleShape),
-                    contentAlignment = Alignment.Center
-                ) {
-                    icon()
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun BoardOverviewCard(
-    pendingCount: Int,
-    completedCount: Int
-) {
-    val totalCount = pendingCount + completedCount
-    val progress = if (totalCount > 0) completedCount.toFloat() / totalCount else 0f
-    
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 20.dp)
-            .clip(RoundedCornerShape(20.dp))
-            .background(Color.White)
-            .shadow(
-                elevation = 5.dp,
-                shape = RoundedCornerShape(20.dp),
-                ambientColor = Color.Black.copy(alpha = 0.06f),
-                spotColor = Color.Black.copy(alpha = 0.08f)
-            )
-            .padding(horizontal = 16.dp, vertical = 12.dp)
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // 1. Progress Ring
-            StitchProgressRing(progress = progress)
-            
-            Spacer(modifier = Modifier.width(16.dp))
-            
-            // 2. Info and Stats Column
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = "Overview",
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = StitchSlate800
-                )
-                
-                Spacer(modifier = Modifier.height(2.dp))
-                
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    // Pending
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Box(modifier = Modifier.size(6.dp).background(StitchRed500, CircleShape))
-                        Text(
-                            text = "Pending: $pendingCount",
-                            fontSize = 10.sp,
-                            color = StitchSlate500,
-                            fontWeight = FontWeight.Medium
-                        )
-                    }
-                    
-                    // Done
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Box(modifier = Modifier.size(6.dp).background(StitchGreen500, CircleShape))
-                        Text(
-                            text = "Done: $completedCount",
-                            fontSize = 10.sp,
-                            color = StitchSlate500,
-                            fontWeight = FontWeight.Medium
-                        )
-                    }
-                    
-                    // Total
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Box(modifier = Modifier.size(6.dp).background(StitchBlue500, CircleShape))
-                        Text(
-                            text = "Total: $totalCount",
-                            fontSize = 10.sp,
-                            color = StitchSlate500,
-                            fontWeight = FontWeight.Medium
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
 
 // ---------------------------------------------------------
 // Custom Canvas Vectors to maintain 100% dependency safety
