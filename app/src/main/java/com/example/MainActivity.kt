@@ -23,6 +23,8 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.border
 import kotlin.math.absoluteValue
 import androidx.compose.foundation.BorderStroke
@@ -54,6 +56,8 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.ExitToApp
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -62,6 +66,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Divider
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.FloatingActionButtonDefaults
+import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -125,7 +130,20 @@ import com.example.ui.theme.WarmPaperBackground
 import com.example.util.Language
 import com.example.util.LocalizedStrings
 import com.example.util.UserSession
-import kotlin.math.absoluteValue
+
+// Stitch Dashboard Colors
+val StitchBg = Color(0xFFF8F9FE)
+val StitchIndigo = Color(0xFF6366F1)
+val StitchPurple = Color(0xFFA855F7)
+val StitchSlate800 = Color(0xFF1E293B)
+val StitchSlate500 = Color(0xFF64748B)
+val StitchGray100 = Color(0xFFF1F5F9)
+val StitchRed50 = Color(0xFFFEF2F2)
+val StitchRed500 = Color(0xFFEF4444)
+val StitchGreen50 = Color(0xFFF0FDF4)
+val StitchGreen500 = Color(0xFF22C55E)
+val StitchBlue50 = Color(0xFFEFF6FF)
+val StitchBlue500 = Color(0xFF3B82F6)
 
 class MainActivity : ComponentActivity() {
     companion object {
@@ -150,6 +168,64 @@ class MainActivity : ComponentActivity() {
                 MainScreen(viewModel)
             }
         }
+    }
+}
+
+@Composable
+fun AmbientMeshBackground(
+    activeAccentColor: Color,
+    modifier: Modifier = Modifier
+) {
+    val animatedAccentColor by animateColorAsState(
+        targetValue = activeAccentColor,
+        animationSpec = tween(1500),
+        label = "bgAccentColor"
+    )
+    Canvas(
+        modifier = modifier.fillMaxSize()
+    ) {
+        val w = size.width
+        val h = size.height
+
+        // Base Stitch pale off-white background
+        drawRect(color = StitchBg)
+
+        // 1. Primary Ambient Glow (Soft peach/amber sunset light top-left)
+        drawCircle(
+            brush = Brush.radialGradient(
+                colors = listOf(
+                    Color(0xFFFFF2E1), // Light warm peach
+                    Color(0x00FFF2E1)
+                ),
+                center = Offset(w * 0.15f, h * 0.12f),
+                radius = w * 0.95f
+            )
+        )
+
+        // 2. Dynamic Accent Glow (Bottom right - switches between rose or teal depending on active profile)
+        drawCircle(
+            brush = Brush.radialGradient(
+                colors = listOf(
+                    animatedAccentColor.copy(alpha = 0.08f),
+                    animatedAccentColor.copy(alpha = 0.02f),
+                    Color.Transparent
+                ),
+                center = Offset(w * 0.85f, h * 0.85f),
+                radius = w * 1.15f
+            )
+        )
+
+        // 3. Central atmospheric float glow
+        drawCircle(
+            brush = Brush.radialGradient(
+                colors = listOf(
+                    Color(0xFFFFF1F2).copy(alpha = 0.08f),
+                    Color.Transparent
+                ),
+                center = Offset(w * 0.5f, h * 0.45f),
+                radius = w * 0.7f
+            )
+        )
     }
 }
 
@@ -212,465 +288,157 @@ fun GoogleLoginScreen(viewModel: TaskViewModel) {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(
-                Brush.verticalGradient(
-                    colors = listOf(
-                        Color(0xFFF8FAFC), // Slate 50
-                        Color(0xFFF1F5F9)  // Slate 100
-                    )
-                )
-            )
             .statusBarsPadding()
             .navigationBarsPadding(),
         contentAlignment = Alignment.Center
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(28.dp)
-                .verticalScroll(rememberScrollState()),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            // Modern Glowing Visual Logo (Abstract Circular Gradient representing Amma & Appa unity)
-            Box(
-                modifier = Modifier
-                    .size(108.dp)
-                    .shadow(12.dp, shape = RoundedCornerShape(24.dp))
-                    .background(Color.White, shape = RoundedCornerShape(24.dp))
-                    .drawBehind {
-                        // Ambient glowing gradient ring on border
-                        drawRoundRect(
-                            brush = Brush.sweepGradient(
-                                colors = listOf(
-                                    AmmaPrimary,
-                                    AppaPrimary,
-                                    AmmaPrimary
-                                )
-                            ),
-                            style = Stroke(width = 4.dp.toPx(), cap = StrokeCap.Round),
-                            cornerRadius = androidx.compose.ui.geometry.CornerRadius(24.dp.toPx(), 24.dp.toPx())
-                        )
-                    },
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "📌",
-                    fontSize = 44.sp,
-                    modifier = Modifier.graphicsLayer {
-                        translationY = -2.dp.toPx()
-                    }
-                )
-            }
+        AmbientMeshBackground(activeAccentColor = AmmaPrimary)
 
-            Spacer(modifier = Modifier.height(32.dp))
-
-            Text(
-                text = LocalizedStrings.get("title", language),
-                fontSize = 42.sp,
-                fontWeight = FontWeight.ExtraBold,
-                fontFamily = FontFamily.Serif,
-                color = PencilCharcoal,
-                textAlign = TextAlign.Center,
-                letterSpacing = (-0.5).sp
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Text(
-                text = LocalizedStrings.get("app_desc", language),
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Normal,
-                fontFamily = FontFamily.SansSerif,
-                color = PencilGray,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.padding(horizontal = 24.dp)
-            )
-
-            Spacer(modifier = Modifier.height(48.dp))
-
-            // Main Google Sign in Button - Sleek capsule with modern elevation and clean border
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(56.dp)
-                    .clip(RoundedCornerShape(28.dp))
-                    .clickable {
-                        try {
-                            var resId = context.resources.getIdentifier("default_web_client_id", "string", "com.example")
-                            if (resId == 0) {
-                                resId = context.resources.getIdentifier("default_web_client_id", "string", context.packageName)
-                            }
-                            val webClientId = if (resId != 0) context.getString(resId) else null
-                            
-                            val gsoBuilder = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
-                                .requestEmail()
-                                .requestProfile()
-                            
-                            if (!webClientId.isNullOrBlank()) {
-                                Log.d("PAPER_BUNDLE", "GoogleLoginScreen: Found Web Client ID: $webClientId. Requesting ID Token.")
-                                gsoBuilder.requestIdToken(webClientId)
-                            } else {
-                                Log.d("PAPER_BUNDLE", "GoogleLoginScreen: Web Client ID not found in resources. Proceeding without ID Token request.")
-                            }
-                            val gso = gsoBuilder.build()
-                            val googleSignInClient = GoogleSignIn.getClient(context, gso)
-                            googleSignInClient.signOut().addOnCompleteListener {
-                                googleSignInLauncher.launch(googleSignInClient.signInIntent)
-                            }
-                        } catch (e: Exception) {
-                            Log.e("PAPER_BUNDLE", "GoogleLoginScreen: Failed to launch Google Sign-In.", e)
-                            viewModel.authError.value = "Failed to launch Google Sign-In: ${e.message}"
-                            Toast.makeText(context, "Google Sign-In unavailable", Toast.LENGTH_LONG).show()
-                        }
-                    }
-                    .testTag("google_login_button"),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
-                border = BorderStroke(1.dp, SoftDivider),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp, pressedElevation = 6.dp)
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxSize(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center
-                ) {
-                    // Google Modern Logo Representation
-                    Box(
-                        modifier = Modifier
-                            .size(24.dp)
-                            .background(Color(0xFFF1F5F9), shape = CircleShape),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            "G",
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF4285F4),
-                            fontFamily = FontFamily.SansSerif
-                        )
-                    }
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Text(
-                        text = LocalizedStrings.get("sign_in_google", language),
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = PencilCharcoal,
-                        fontFamily = FontFamily.SansSerif
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            if (authLoading) {
-                Spacer(modifier = Modifier.height(16.dp))
-                CircularProgressIndicator(color = AmmaPrimary)
-            }
-
-            authError?.let { err ->
-                Spacer(modifier = Modifier.height(16.dp))
-                Text(
-                    text = err,
-                    color = RedPencil,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Medium,
-                    textAlign = TextAlign.Center
-                )
-            }
-        }
-    }
-}
-
-@Composable
-fun FamilySetupScreen(viewModel: TaskViewModel, session: UserSession) {
-    val context = LocalContext.current
-    val language by viewModel.curLanguage.collectAsState()
-    val authLoading by viewModel.authLoading.collectAsState()
-    val authError by viewModel.authError.collectAsState()
-
-    var familyNameInput by remember { mutableStateOf("") }
-    var inviteCodeInput by remember { mutableStateOf("") }
-
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(
-                Brush.verticalGradient(
-                    colors = listOf(
-                        Color(0xFFF8FAFC), // Slate 50
-                        Color(0xFFF1F5F9)  // Slate 100
-                    )
-                )
-            )
-            .statusBarsPadding()
-            .navigationBarsPadding(),
-        contentAlignment = Alignment.TopCenter
-    ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(24.dp)
                 .verticalScroll(rememberScrollState()),
-            horizontalAlignment = Alignment.CenterHorizontally
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
         ) {
-            // Welcome metadata
-            Row(
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 16.dp, horizontal = 4.dp),
-                verticalAlignment = Alignment.CenterVertically
+                    .clip(RoundedCornerShape(32.dp))
+                    .background(Color.White.copy(alpha = 0.82f))
+                    .border(BorderStroke(1.dp, Color.White.copy(alpha = 0.5f)), RoundedCornerShape(32.dp))
+                    .padding(32.dp)
             ) {
-                // Gradient Profile Initials avatar
-                Box(
-                    modifier = Modifier
-                        .size(56.dp)
-                        .shadow(4.dp, CircleShape)
-                        .background(
-                            Brush.linearGradient(
-                                colors = listOf(AmmaPrimary, AppaPrimary)
-                            ),
-                            shape = CircleShape
-                        ),
-                    contentAlignment = Alignment.Center
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Text(
-                        text = session.name.first().toString().uppercase(),
-                        fontSize = 24.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = Color.White
-                    )
-                }
-                Spacer(modifier = Modifier.width(16.dp))
-                Column {
-                    Text(
-                        text = "Hello, ${session.name}!",
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = PencilCharcoal,
-                        fontFamily = FontFamily.SansSerif
-                    )
-                    Text(
-                        text = session.email,
-                        fontSize = 14.sp,
-                        color = PencilGray,
-                        fontFamily = FontFamily.SansSerif
-                    )
-                }
-            }
-
-            Divider(color = SoftDivider, modifier = Modifier.padding(bottom = 24.dp))
-
-            // Card 1: Create Family board
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .shadow(4.dp, shape = RoundedCornerShape(16.dp)),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
-                border = BorderStroke(1.dp, SoftDivider),
-                shape = RoundedCornerShape(16.dp)
-            ) {
-                Column(modifier = Modifier.padding(20.dp)) {
-                    Text(
-                        text = LocalizedStrings.get("create_family_title", language),
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = PencilCharcoal,
-                        fontFamily = FontFamily.Serif
-                    )
-                    Text(
-                        text = LocalizedStrings.get("create_family_desc", language),
-                        fontSize = 14.sp,
-                        color = PencilGray,
-                        fontFamily = FontFamily.SansSerif,
-                        modifier = Modifier.padding(vertical = 4.dp)
-                    )
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    OutlinedTextField(
-                        value = familyNameInput,
-                        onValueChange = { familyNameInput = it },
-                        placeholder = { Text(LocalizedStrings.get("family_name_hint", language), fontSize = 14.sp, color = PencilGray.copy(alpha = 0.7f)) },
+                    Box(
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .testTag("create_family_input"),
-                        singleLine = true,
-                        shape = RoundedCornerShape(12.dp),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = AmmaPrimary,
-                            unfocusedBorderColor = SoftDivider,
-                            focusedContainerColor = Color(0xFFF8FAFC),
-                            unfocusedContainerColor = Color(0xFFF8FAFC),
-                            focusedTextColor = PencilCharcoal,
-                            unfocusedTextColor = PencilCharcoal
-                        )
-                    )
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    Button(
-                        onClick = {
-                            viewModel.handleCreateFamily(context, familyNameInput) {
-                                Toast.makeText(context, "Welcome to your family workspace!", Toast.LENGTH_SHORT).show()
-                            }
-                        },
-                        enabled = familyNameInput.isNotBlank() && !authLoading,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(52.dp)
-                            .shadow(2.dp, shape = RoundedCornerShape(26.dp))
-                            .testTag("create_family_button"),
-                        shape = RoundedCornerShape(26.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = AmmaPrimary,
-                            disabledContainerColor = AmmaPrimary.copy(alpha = 0.5f)
-                        )
+                            .size(92.dp)
+                            .shadow(16.dp, shape = RoundedCornerShape(26.dp), ambientColor = AmmaPrimary.copy(alpha = 0.2f), spotColor = AppaPrimary.copy(alpha = 0.3f))
+                            .background(
+                                Brush.linearGradient(
+                                    colors = listOf(AmmaPrimary, AppaPrimary)
+                                ),
+                                shape = RoundedCornerShape(26.dp)
+                            ),
+                        contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = LocalizedStrings.get("create_button", language),
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 16.sp,
+                            text = "P",
+                            fontSize = 38.sp,
+                            fontWeight = FontWeight.Black,
                             color = Color.White
                         )
                     }
-                }
-            }
 
-            Spacer(modifier = Modifier.height(20.dp))
+                    Spacer(modifier = Modifier.height(28.dp))
 
-            // Modern Divider OR indicator
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.Center
-            ) {
-                Divider(modifier = Modifier.weight(1f), color = SoftDivider)
-                Text(
-                    text = LocalizedStrings.get("or_label", language),
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = PencilGray,
-                    fontFamily = FontFamily.SansSerif,
-                    modifier = Modifier.padding(horizontal = 16.dp)
-                )
-                Divider(modifier = Modifier.weight(1f), color = SoftDivider)
-            }
-
-            Spacer(modifier = Modifier.height(20.dp))
-
-            // Card 2: Join Family board
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .shadow(4.dp, shape = RoundedCornerShape(16.dp)),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
-                border = BorderStroke(1.dp, SoftDivider),
-                shape = RoundedCornerShape(16.dp)
-            ) {
-                Column(modifier = Modifier.padding(20.dp)) {
                     Text(
-                        text = LocalizedStrings.get("join_family_title", language),
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Bold,
+                        text = LocalizedStrings.get("title", language),
+                        fontSize = 36.sp,
+                        fontWeight = FontWeight.Black,
+                        fontFamily = FontFamily.Serif,
                         color = PencilCharcoal,
-                        fontFamily = FontFamily.Serif
+                        textAlign = TextAlign.Center
                     )
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
                     Text(
-                        text = LocalizedStrings.get("join_family_desc", language),
-                        fontSize = 14.sp,
+                        text = LocalizedStrings.get("app_desc", language),
+                        fontSize = 15.sp,
                         color = PencilGray,
-                        fontFamily = FontFamily.SansSerif,
-                        modifier = Modifier.padding(vertical = 4.dp)
+                        fontWeight = FontWeight.Medium,
+                        textAlign = TextAlign.Center,
+                        lineHeight = 22.sp
                     )
 
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(32.dp))
 
-                    OutlinedTextField(
-                        value = inviteCodeInput,
-                        onValueChange = { inviteCodeInput = it },
-                        placeholder = { Text(LocalizedStrings.get("invite_code_hint", language), fontSize = 14.sp, color = PencilGray.copy(alpha = 0.7f)) },
+                    Card(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .testTag("join_family_input"),
-                        singleLine = true,
-                        shape = RoundedCornerShape(12.dp),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = AppaPrimary,
-                            unfocusedBorderColor = SoftDivider,
-                            focusedContainerColor = Color(0xFFF8FAFC),
-                            unfocusedContainerColor = Color(0xFFF8FAFC),
-                            focusedTextColor = PencilCharcoal,
-                            unfocusedTextColor = PencilCharcoal
-                        )
-                    )
+                            .height(56.dp)
+                            .clip(RoundedCornerShape(28.dp))
+                            .clickable {
+                                try {
+                                    var resId = context.resources.getIdentifier("default_web_client_id", "string", "com.example")
+                                    if (resId == 0) {
+                                        resId = context.resources.getIdentifier("default_web_client_id", "string", context.packageName)
+                                    }
+                                    val webClientId = if (resId != 0) context.getString(resId) else null
 
-                    Spacer(modifier = Modifier.height(16.dp))
+                                    val gsoBuilder = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+                                        .requestEmail()
+                                        .requestProfile()
 
-                    Button(
-                        onClick = {
-                            viewModel.handleJoinFamily(context, inviteCodeInput) {
-                                Toast.makeText(context, "Connected to your family board!", Toast.LENGTH_SHORT).show()
+                                    if (!webClientId.isNullOrBlank()) {
+                                        Log.d("PAPER_BUNDLE", "GoogleLoginScreen: Found Web Client ID: $webClientId. Requesting ID Token.")
+                                        gsoBuilder.requestIdToken(webClientId)
+                                    }
+                                    val gso = gsoBuilder.build()
+                                    val googleSignInClient = GoogleSignIn.getClient(context, gso)
+                                    googleSignInClient.signOut().addOnCompleteListener {
+                                        googleSignInLauncher.launch(googleSignInClient.signInIntent)
+                                    }
+                                } catch (e: Exception) {
+                                    Log.e("PAPER_BUNDLE", "GoogleLoginScreen: Failed to launch Google Sign-In.", e)
+                                    viewModel.authError.value = "Failed to launch Google Sign-In: ${e.message}"
+                                    Toast.makeText(context, "Google Sign-In unavailable", Toast.LENGTH_LONG).show()
+                                }
                             }
-                        },
-                        enabled = inviteCodeInput.isNotBlank() && !authLoading,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(52.dp)
-                            .shadow(2.dp, shape = RoundedCornerShape(26.dp))
-                            .testTag("join_family_button"),
-                        shape = RoundedCornerShape(26.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = AppaPrimary,
-                            disabledContainerColor = AppaPrimary.copy(alpha = 0.5f)
-                        )
+                            .testTag("google_login_button"),
+                        colors = CardDefaults.cardColors(containerColor = PencilCharcoal),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
                     ) {
+                        Row(
+                            modifier = Modifier.fillMaxSize(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(26.dp)
+                                    .background(Color.White.copy(alpha = 0.16f), shape = CircleShape),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    "G",
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text(
+                                text = LocalizedStrings.get("sign_in_google", language),
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White,
+                                fontFamily = FontFamily.SansSerif
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(20.dp))
+
+                    if (authLoading) {
+                        CircularProgressIndicator(color = AmmaPrimary, strokeWidth = 3.dp)
+                        Spacer(modifier = Modifier.height(12.dp))
+                    }
+
+                    authError?.let { err ->
                         Text(
-                            text = LocalizedStrings.get("join_button", language),
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 16.sp,
-                            color = Color.White
+                            text = err,
+                            color = RedPencil,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Medium,
+                            textAlign = TextAlign.Center
                         )
                     }
                 }
-            }
-
-            Spacer(modifier = Modifier.height(36.dp))
-
-            // Disconnect/Logout button at bottom
-            OutlinedButton(
-                onClick = { viewModel.logout(context) },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(50.dp)
-                    .testTag("logout_profile_button"),
-                border = BorderStroke(1.5.dp, SoftDivider),
-                shape = RoundedCornerShape(25.dp),
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = PencilCharcoal)
-            ) {
-                Text(
-                    text = LocalizedStrings.get("logout_button", language),
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 15.sp,
-                    fontFamily = FontFamily.SansSerif
-                )
-            }
-
-            if (authLoading) {
-                Spacer(modifier = Modifier.height(16.dp))
-                CircularProgressIndicator(color = AmmaPrimary)
-            }
-
-            authError?.let { err ->
-                Spacer(modifier = Modifier.height(16.dp))
-                Text(
-                    text = err,
-                    color = RedPencil,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Medium,
-                    textAlign = TextAlign.Center
-                )
             }
         }
     }
@@ -694,14 +462,6 @@ fun SharedFamilyBoardScreen(viewModel: TaskViewModel, session: UserSession) {
         familyMembers.associate { member ->
             member.uid to allTasks.count { it.profileOwner == member.uid && !it.isCompleted }
         }
-    }
-
-    // Split active profile's tasks into Pending vs Completed
-    val pendingTasksList = remember(activeTasks) {
-        activeTasks.filter { !it.isCompleted }
-    }
-    val completedTasksList = remember(activeTasks) {
-        activeTasks.filter { it.isCompleted }
     }
 
     // Speech-to-Text Setup
@@ -751,77 +511,124 @@ fun SharedFamilyBoardScreen(viewModel: TaskViewModel, session: UserSession) {
     val selectedIndex = familyMembers.indexOfFirst { it.uid == curProfile }
     val activeTabColor = if (selectedIndex >= 0 && selectedIndex % 2 == 0) AmmaPrimary else AppaPrimary
 
-    Scaffold(
-        modifier = Modifier
-            .fillMaxSize()
-            .testTag("main_screen"),
-        containerColor = WarmPaperBackground,
-        topBar = {
-            WoodenHeader(
-                language = language,
-                userSession = session,
-                onLanguageToggle = { viewModel.setLanguage(it) },
-                onLogout = { viewModel.logout(context) }
-            )
-        },
-        floatingActionButton = {
-            FloatingActionButton(
-                onClick = {
-                    voiceTextForInput = ""
-                    isAddingTask = true
-                },
-                modifier = Modifier
-                    .padding(16.dp)
-                    .size(72.dp)
-                    .testTag("add_task_fab"),
-                containerColor = activeTabColor,
-                contentColor = Color.White,
-                shape = CircleShape,
-                elevation = FloatingActionButtonDefaults.elevation(8.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Add,
-                    contentDescription = LocalizedStrings.get("add_task", language),
-                    modifier = Modifier.size(36.dp)
-                )
-            }
+    var taskFilter by remember { mutableStateOf("All") }
+
+    val filteredTasks = remember(activeTasks, taskFilter) {
+        when (taskFilter) {
+            "Pending" -> activeTasks.filter { !it.isCompleted }
+            "Completed" -> activeTasks.filter { it.isCompleted }
+            else -> activeTasks
         }
-    ) { innerPadding ->
-        Column(
+    }
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        AmbientMeshBackground(activeAccentColor = activeTabColor)
+
+        Scaffold(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding)
-        ) {
-            // Physical paper bundle hanger selector (Dynamic Hanger Tabs)
-            PaperHangerRow(
-                language = language,
-                curProfile = curProfile,
-                onProfileSelect = { viewModel.setProfile(it) },
-                familyMembers = familyMembers,
-                memberPendingCounts = memberPendingCounts
-            )
-
-            // Current Active Task List Scrollable Board
-            Box(
-                modifier = Modifier
-                    .weight(1.0f)
-                    .fillMaxWidth()
-            ) {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(bottom = 120.dp, top = 10.dp)
+                .testTag("main_screen"),
+            containerColor = Color.Transparent, // Let the beautiful gradient background show through!
+            topBar = {
+                WoodenHeader(
+                    language = language,
+                    userSession = session,
+                    onLogout = { viewModel.logout(context) }
+                )
+            },
+            floatingActionButton = {
+                Column(
+                    modifier = Modifier.padding(bottom = 80.dp, end = 16.dp), // Elevated above bottom nav
+                    horizontalAlignment = Alignment.End,
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    if (pendingTasksList.isEmpty()) {
+                    CompactLanguageSwitcher(
+                        language = language,
+                        onClick = {
+                            viewModel.setLanguage(
+                                if (language == Language.EN) Language.TA else Language.EN
+                            )
+                        }
+                    )
+
+                    Box(
+                        modifier = Modifier
+                            .size(60.dp)
+                            .shadow(
+                                elevation = 12.dp,
+                                shape = CircleShape,
+                                ambientColor = StitchIndigo.copy(alpha = 0.4f),
+                                spotColor = StitchIndigo.copy(alpha = 0.6f)
+                            )
+                            .background(
+                                Brush.linearGradient(
+                                    colors = listOf(StitchPurple, StitchIndigo)
+                                ),
+                                CircleShape
+                            )
+                            .clickable {
+                                voiceTextForInput = ""
+                                isAddingTask = true
+                            }
+                            .testTag("add_task_fab"),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Add,
+                            contentDescription = LocalizedStrings.get("add_task", language),
+                            tint = Color.White,
+                            modifier = Modifier.size(30.dp)
+                        )
+                    }
+                }
+            }
+        ) { innerPadding ->
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding)
+            ) {
+                // 1. Profile Switcher Row (Tactile cozy family members switcher)
+                PaperHangerRow(
+                    language = language,
+                    curProfile = curProfile,
+                    onProfileSelect = { viewModel.setProfile(it) },
+                    familyMembers = familyMembers,
+                    memberPendingCounts = memberPendingCounts
+                )
+
+                // 2. Scrollable content area
+                LazyColumn(
+                    modifier = Modifier
+                        .weight(1.0f)
+                        .fillMaxWidth(),
+                    contentPadding = PaddingValues(start = 0.dp, end = 0.dp, bottom = 110.dp, top = 6.dp)
+                ) {
+                    // A. YOUR TASKS SECTION
+                    item {
+                        TasksSectionHeader(
+                            language = language,
+                            currentFilter = taskFilter,
+                            onFilterChange = { taskFilter = it }
+                        )
+                    }
+
+                    if (filteredTasks.isEmpty()) {
                         item {
                             val activeMember = familyMembers.find { it.uid == curProfile }
                             val activeMemberName = activeMember?.name?.substringBefore(" ") ?: "Member"
+                            val emptyMsg = when (taskFilter) {
+                                "Completed" -> "No completed tasks yet."
+                                "Pending" -> String.format(LocalizedStrings.get("no_pending_member", language), activeMemberName)
+                                else -> "No tasks created yet."
+                            }
                             EmptyPaperNote(
-                                message = String.format(LocalizedStrings.get("no_pending_member", language), activeMemberName),
+                                message = emptyMsg,
                                 accentColor = activeTabColor
                             )
                         }
                     } else {
-                        items(pendingTasksList, key = { it.id }) { task ->
+                        items(filteredTasks, key = { it.id }) { task ->
                             TaskCard(
                                 task = task,
                                 language = language,
@@ -831,29 +638,108 @@ fun SharedFamilyBoardScreen(viewModel: TaskViewModel, session: UserSession) {
                         }
                     }
 
-                    // Collapsible Completed Archived Stack
-                    if (completedTasksList.isNotEmpty()) {
-                        item {
-                            Spacer(modifier = Modifier.height(16.dp))
-                            CompletedHeaderSection(
-                                language = language,
-                                count = completedTasksList.size,
-                                isExpanded = completedExpanded,
-                                onClick = { completedExpanded = !completedExpanded }
-                            )
-                        }
-
-                        if (completedExpanded) {
-                            items(completedTasksList, key = { it.id }) { task ->
-                                TaskCard(
-                                    task = task,
-                                    language = language,
-                                    onToggle = { viewModel.toggleTaskComplete(task) },
-                                    onDelete = { taskToDelete = task }
-                                )
-                            }
-                        }
+                    // B. HERO BANNER
+                    item {
+                        Spacer(modifier = Modifier.height(20.dp))
+                        StitchHeroBanner()
                     }
+
+                    // C. OVERVIEW SECTION
+                    item {
+                        Spacer(modifier = Modifier.height(20.dp))
+                        BoardOverviewCard(
+                            language = language,
+                            session = session,
+                            pendingCount = activeTasks.count { !it.isCompleted },
+                            completedCount = activeTasks.count { it.isCompleted },
+                            activeAccent = activeTabColor
+                        )
+                    }
+                }
+            }
+        }
+
+        // 3. Floating Stitch Bottom Navigation Bar
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 16.dp)
+                .fillMaxWidth(0.92f)
+                .height(72.dp)
+                .shadow(
+                    elevation = 20.dp,
+                    shape = RoundedCornerShape(28.dp),
+                    ambientColor = Color.Black.copy(alpha = 0.08f),
+                    spotColor = Color.Black.copy(alpha = 0.08f)
+                )
+                .background(Color.White, RoundedCornerShape(28.dp))
+                .border(1.dp, Color(0xFFF1F5F9), RoundedCornerShape(28.dp))
+                .padding(horizontal = 24.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceAround,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Item 1: Tasks
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                    modifier = Modifier.clickable { /* Already on Tasks */ }
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Check,
+                        contentDescription = "Tasks",
+                        tint = StitchIndigo,
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Text(
+                        text = "Tasks",
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = StitchIndigo
+                    )
+                }
+
+                // Item 2: Family
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                    modifier = Modifier.clickable { /* No-op in demo */ }
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.KeyboardArrowDown,
+                        contentDescription = "Family",
+                        tint = StitchSlate500,
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Text(
+                        text = "Family",
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = StitchSlate500
+                    )
+                }
+
+                // Item 3: Settings
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                    modifier = Modifier.clickable { /* No-op in demo */ }
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.KeyboardArrowUp,
+                        contentDescription = "Settings",
+                        tint = StitchSlate500,
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Text(
+                        text = "Settings",
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = StitchSlate500
+                    )
                 }
             }
         }
@@ -889,63 +775,320 @@ fun SharedFamilyBoardScreen(viewModel: TaskViewModel, session: UserSession) {
 }
 
 @Composable
-fun WoodenHeader(
+fun TasksSectionHeader(
     language: Language,
-    userSession: UserSession?,
-    onLanguageToggle: (Language) -> Unit,
-    onLogout: () -> Unit
+    currentFilter: String,
+    onFilterChange: (String) -> Unit
 ) {
-    val clipboardManager = LocalClipboardManager.current
-    val context = LocalContext.current
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp, vertical = 12.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = "Your Tasks",
+            fontSize = 18.sp,
+            fontWeight = FontWeight.ExtraBold,
+            color = StitchSlate800
+        )
+        
+        Row(
+            modifier = Modifier
+                .background(StitchGray100, RoundedCornerShape(12.dp))
+                .padding(3.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            val filters = listOf("All", "Pending", "Completed")
+            filters.forEach { filter ->
+                val isSelected = currentFilter == filter
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(if (isSelected) Color.White else Color.Transparent)
+                        .clickable { onFilterChange(filter) }
+                        .padding(horizontal = 12.dp, vertical = 6.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = filter,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = if (isSelected) StitchIndigo else StitchSlate500
+                    )
+                }
+            }
+        }
+    }
+}
 
+@Composable
+fun StitchHeroBanner() {
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .shadow(
-                elevation = 2.dp,
-                shape = RoundedCornerShape(bottomStart = 16.dp, bottomEnd = 16.dp)
-            )
+            .padding(horizontal = 16.dp)
+            .height(88.dp)
+            .clip(RoundedCornerShape(24.dp))
             .background(
-                Brush.verticalGradient(
-                    colors = listOf(
-                        Color.White.copy(alpha = 0.95f),
-                        Color.White.copy(alpha = 0.85f)
-                    )
+                Brush.linearGradient(
+                    colors = listOf(StitchIndigo, StitchPurple)
                 )
             )
-            .statusBarsPadding()
-            .padding(horizontal = 16.dp, vertical = 12.dp)
+            .padding(20.dp),
+        contentAlignment = Alignment.CenterStart
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .align(Alignment.CenterStart),
-            verticalAlignment = Alignment.CenterVertically
+        Column {
+            Text(
+                text = "Good day!",
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color.White
+            )
+            Spacer(modifier = Modifier.height(2.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = "Let's get things done",
+                    fontSize = 13.sp,
+                    color = Color.White.copy(alpha = 0.9f)
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = "✨",
+                    fontSize = 11.sp
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun StitchProgressRing(progress: Float) {
+    Box(
+        modifier = Modifier.size(50.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val strokeWidth = 5.dp.toPx()
+            val diameter = size.minDimension - strokeWidth
+            val topLeft = Offset(
+                (size.width - diameter) / 2,
+                (size.height - diameter) / 2
+            )
+            val arcSize = Size(diameter, diameter)
+            
+            // Draw background track
+            drawArc(
+                color = Color(0xFFF1F5F9),
+                startAngle = 0f,
+                sweepAngle = 360f,
+                useCenter = false,
+                topLeft = topLeft,
+                size = arcSize,
+                style = Stroke(width = strokeWidth)
+            )
+            
+            // Draw progress arc
+            drawArc(
+                color = StitchIndigo,
+                startAngle = -90f,
+                sweepAngle = progress * 360f,
+                useCenter = false,
+                topLeft = topLeft,
+                size = arcSize,
+                style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
+            )
+        }
+        Text(
+            text = "${(progress * 100).toInt()}%",
+            fontSize = 11.sp,
+            fontWeight = FontWeight.Bold,
+            color = StitchIndigo
+        )
+    }
+}
+
+@Composable
+fun StitchStatChip(
+    label: String,
+    value: String,
+    tintColor: Color,
+    bgColor: Color,
+    icon: @Composable () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .height(76.dp)
+            .clip(RoundedCornerShape(16.dp))
+            .background(bgColor)
+            .padding(10.dp)
+    ) {
+        Column(
+            modifier = Modifier.fillMaxSize(),
+            verticalArrangement = Arrangement.SpaceBetween
         ) {
-            // User photo / avatar - modern gradient look
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(CircleShape)
-                    .background(
-                        Brush.linearGradient(
-                            colors = listOf(
-                                AmmaPrimary,
-                                AppaPrimary
-                            )
-                        )
+            Text(
+                text = label,
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Bold,
+                color = tintColor
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Bottom
+            ) {
+                Text(
+                    text = value,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = StitchSlate800,
+                    lineHeight = 1.sp
+                )
+                Box(
+                    modifier = Modifier
+                        .size(20.dp)
+                        .background(Color.White, CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    icon()
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun BoardOverviewCard(
+    language: Language,
+    session: UserSession,
+    pendingCount: Int,
+    completedCount: Int,
+    activeAccent: Color
+) {
+    val totalCount = pendingCount + completedCount
+    val progress = if (totalCount > 0) completedCount.toFloat() / totalCount else 0f
+    
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 12.dp)
+            .clip(RoundedCornerShape(24.dp))
+            .background(Color.White)
+            .border(
+                width = 1.dp,
+                color = Color(0xFFF1F5F9),
+                shape = RoundedCornerShape(24.dp)
+            )
+            .shadow(
+                elevation = 2.dp,
+                shape = RoundedCornerShape(24.dp),
+                ambientColor = Color.Black.copy(alpha = 0.02f),
+                spotColor = Color.Black.copy(alpha = 0.02f)
+            )
+            .padding(20.dp)
+    ) {
+        Column {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column {
+                    Text(
+                        text = "Overview",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = StitchSlate800
                     )
-                    .clickable {
-                        userSession?.familyInviteCode?.let { code ->
-                            clipboardManager.setText(AnnotatedString(code))
-                            Toast.makeText(context, "Invite Code Copied! Send it to your family.", Toast.LENGTH_SHORT).show()
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = "Task summary",
+                        fontSize = 11.sp,
+                        color = StitchSlate500
+                    )
+                }
+                
+                StitchProgressRing(progress = progress)
+            }
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                StitchStatChip(
+                    label = "Pending",
+                    value = pendingCount.toString(),
+                    tintColor = StitchRed500,
+                    bgColor = StitchRed50,
+                    icon = {
+                        Canvas(modifier = Modifier.size(10.dp)) {
+                            drawCircle(color = StitchRed500.copy(alpha = 0.6f), style = Stroke(width = 1.5.dp.toPx()))
+                            drawLine(color = StitchRed500.copy(alpha = 0.6f), start = center, end = Offset(center.x, center.y - 3.dp.toPx()), strokeWidth = 1.5.dp.toPx())
+                            drawLine(color = StitchRed500.copy(alpha = 0.6f), start = center, end = Offset(center.x + 2.dp.toPx(), center.y), strokeWidth = 1.5.dp.toPx())
                         }
                     },
+                    modifier = Modifier.weight(1f)
+                )
+                StitchStatChip(
+                    label = "Done",
+                    value = completedCount.toString(),
+                    tintColor = StitchGreen500,
+                    bgColor = StitchGreen50,
+                    icon = {
+                        Icon(imageVector = Icons.Default.Check, contentDescription = null, tint = StitchGreen500.copy(alpha = 0.6f), modifier = Modifier.size(10.dp))
+                    },
+                    modifier = Modifier.weight(1f)
+                )
+                StitchStatChip(
+                    label = "Total",
+                    value = totalCount.toString(),
+                    tintColor = StitchBlue500,
+                    bgColor = StitchBlue50,
+                    icon = {
+                        Canvas(modifier = Modifier.size(10.dp)) {
+                            val strokeWidth = 1.5.dp.toPx()
+                            drawLine(color = StitchBlue500.copy(alpha = 0.6f), start = Offset(0f, 2.dp.toPx()), end = Offset(size.width, 2.dp.toPx()), strokeWidth = strokeWidth)
+                            drawLine(color = StitchBlue500.copy(alpha = 0.6f), start = Offset(0f, 5.dp.toPx()), end = Offset(size.width, 5.dp.toPx()), strokeWidth = strokeWidth)
+                            drawLine(color = StitchBlue500.copy(alpha = 0.6f), start = Offset(0f, 8.dp.toPx()), end = Offset(size.width, 8.dp.toPx()), strokeWidth = strokeWidth)
+                        }
+                    },
+                    modifier = Modifier.weight(1f)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun WoodenHeader(
+    language: Language,
+    userSession: UserSession?,
+    onLogout: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .statusBarsPadding()
+            .padding(horizontal = 20.dp, vertical = 16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Profile Letter Icon (e.g. K) inside Indigo rounded-xl box
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(StitchIndigo),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
                     text = userSession?.name?.firstOrNull()?.uppercase().toString(),
-                    fontSize = 18.sp,
+                    fontSize = 20.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color.White
                 )
@@ -955,79 +1098,73 @@ fun WoodenHeader(
 
             Column {
                 Text(
-                    text = userSession?.familyName ?: LocalizedStrings.get("title", language),
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold,
-                    fontFamily = FontFamily.SansSerif,
-                    color = PencilCharcoal,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    text = "Welcome back,",
+                    fontSize = 12.sp,
+                    color = StitchSlate500
                 )
-                
                 Spacer(modifier = Modifier.height(2.dp))
-                
-                userSession?.familyInviteCode?.let { code ->
-                    Row(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(6.dp))
-                            .background(Color(0xFFF1F5F9))
-                            .clickable {
-                                clipboardManager.setText(AnnotatedString(code))
-                                Toast.makeText(context, "Invite Code Copied: $code", Toast.LENGTH_SHORT).show()
-                            }
-                            .padding(horizontal = 8.dp, vertical = 3.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = String.format(LocalizedStrings.get("invite_code_banner", language), code),
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            fontFamily = FontFamily.Monospace,
-                            color = PencilGray
-                        )
-                    }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = userSession?.familyName ?: LocalizedStrings.get("title", language),
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = StitchSlate800
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = "🏡",
+                        fontSize = 16.sp
+                    )
                 }
             }
         }
 
-        // Beautiful Language toggle and Exit
         Row(
-            modifier = Modifier.align(Alignment.CenterEnd),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Row(
+            // Notification button
+            Box(
                 modifier = Modifier
-                    .clip(RoundedCornerShape(20.dp))
-                    .background(Color(0xFFF1F5F9))
-                    .padding(3.dp),
-                verticalAlignment = Alignment.CenterVertically
+                    .size(42.dp)
+                    .clip(CircleShape)
+                    .background(Color.White)
+                    .border(1.dp, Color(0xFFF1F5F9), CircleShape)
+                    .clickable { /* No-op notifications */ },
+                contentAlignment = Alignment.Center
             ) {
-                LanguageButton(
-                    text = LocalizedStrings.get("english_opt", language),
-                    isSelected = language == Language.EN,
-                    onClick = { onLanguageToggle(Language.EN) }
+                Icon(
+                    imageVector = Icons.Default.Add, // Stand-in for notifications
+                    contentDescription = "Notifications",
+                    tint = StitchSlate500,
+                    modifier = Modifier.size(20.dp)
                 )
-                LanguageButton(
-                    text = LocalizedStrings.get("tamil_opt", language),
-                    isSelected = language == Language.TA,
-                    onClick = { onLanguageToggle(Language.TA) }
+                // Red badge dot
+                Box(
+                    modifier = Modifier
+                        .size(8.dp)
+                        .align(Alignment.TopEnd)
+                        .padding(top = 8.dp, end = 8.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFFEF4444))
                 )
             }
 
-            // Tactile modern sign-out icon from the notice board
-            IconButton(
-                onClick = onLogout,
+            // Logout button
+            Box(
                 modifier = Modifier
-                    .size(36.dp)
+                    .size(42.dp)
                     .clip(CircleShape)
-                    .background(Color(0xFFF1F5F9))
+                    .background(Color.White)
+                    .border(1.dp, Color(0xFFF1F5F9), CircleShape)
+                    .clickable(onClick = onLogout),
+                contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = Icons.Default.ExitToApp,
                     contentDescription = "Sign Out",
-                    tint = PencilCharcoal,
-                    modifier = Modifier.size(18.dp)
+                    tint = StitchSlate500,
+                    modifier = Modifier.size(20.dp)
                 )
             }
         }
@@ -1055,6 +1192,29 @@ fun LanguageButton(
         )
     }
 }
+
+@Composable
+fun CompactLanguageSwitcher(
+    language: Language,
+    onClick: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .clip(RoundedCornerShape(16.dp))
+            .background(Color.White.copy(alpha = 0.8f))
+            .border(1.dp, SoftDivider, RoundedCornerShape(16.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 8.dp)
+    ) {
+        Text(
+            text = if (language == Language.EN) "EN" else "TA",
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Bold,
+            color = PencilCharcoal
+        )
+    }
+}
+
 @Composable
 fun PaperHangerRow(
     language: Language,
@@ -1064,41 +1224,40 @@ fun PaperHangerRow(
     memberPendingCounts: Map<String, Int>
 ) {
     Column {
-        Spacer(modifier = Modifier.height(10.dp))
+        Spacer(modifier = Modifier.height(4.dp))
 
-        Row(
+        androidx.compose.foundation.lazy.LazyRow(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 10.dp),
+                .padding(vertical = 10.dp),
+            contentPadding = PaddingValues(horizontal = 16.dp),
             horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            familyMembers.forEachIndexed { index, member ->
+            items(familyMembers.size) { index ->
+                val member = familyMembers[index]
                 val pendingCount = memberPendingCounts[member.uid] ?: 0
+                val isSelected = curProfile == member.uid
+                
+                // Colors
                 val accentColor = if (index % 2 == 0) AmmaPrimary else AppaPrimary
                 val bgColor = if (index % 2 == 0) AmmaSurface else AppaSurface
                 val onTextColor = if (index % 2 == 0) AmmaOnSurface else AppaOnSurface
 
-                HangingClipboard(
-                    modifier = Modifier.weight(1f),
-                    label = if (member.name.contains(" (Amma)") || member.name.contains(" (Appa)") || member.name.contains(" (Kowshik)")) {
-                        member.name.substringBefore(" (")
-                    } else if (member.name.contains(" ")) {
-                        member.name.substringBefore(" ")
-                    } else {
-                        member.name
-                    },
-                    countText = if (pendingCount == 0) {
-                        LocalizedStrings.get("remaining_none", language)
-                    } else if (pendingCount == 1) {
-                        LocalizedStrings.get("remaining_count_singular", language)
-                    } else {
-                        String.format(LocalizedStrings.get("remaining_count", language), pendingCount)
-                    },
+                val displayName = if (member.name.contains(" (Amma)") || member.name.contains(" (Appa)") || member.name.contains(" (Kowshik)")) {
+                    member.name.substringBefore(" (")
+                } else if (member.name.contains(" ")) {
+                    member.name.substringBefore(" ")
+                } else {
+                    member.name
+                }
+
+                ProfileAvatarTab(
+                    name = displayName,
+                    pendingCount = pendingCount,
                     accentColor = accentColor,
                     bgColor = bgColor,
                     onTextColor = onTextColor,
-                    isSelected = curProfile == member.uid,
-                    rotationAngle = 0f,
+                    isSelected = isSelected,
                     onClick = { onProfileSelect(member.uid) },
                     testTag = "tab_${member.uid}"
                 )
@@ -1108,85 +1267,120 @@ fun PaperHangerRow(
 }
 
 @Composable
-fun HangingClipboard(
-    modifier: Modifier = Modifier,
-    label: String,
-    countText: String,
+fun ProfileAvatarTab(
+    name: String,
+    pendingCount: Int,
     accentColor: Color,
     bgColor: Color,
     onTextColor: Color,
     isSelected: Boolean,
-    rotationAngle: Float,
     onClick: () -> Unit,
     testTag: String
 ) {
-    val scale by animateFloatAsState(targetValue = if (isSelected) 1.02f else 0.96f, label = "scale")
-    val alpha by animateFloatAsState(targetValue = if (isSelected) 1.0f else 0.75f, label = "alpha")
-    val translationY by animateDpAsState(targetValue = if (isSelected) (-4).dp else 0.dp, label = "offset")
+    // Spring physics transitions for realistic cozy 2026 motion feel
+    val scale by animateFloatAsState(
+        targetValue = if (isSelected) 1.08f else 0.92f,
+        animationSpec = spring(
+            dampingRatio = 0.55f, // organic bouncy physics
+            stiffness = Spring.StiffnessLow
+        ),
+        label = "avatarScale"
+    )
+    val translationY by animateDpAsState(
+        targetValue = if (isSelected) (-8).dp else 0.dp,
+        animationSpec = spring(
+            dampingRatio = 0.55f,
+            stiffness = Spring.StiffnessLow
+        ),
+        label = "avatarTranslationY"
+    )
+    val selectionGlowAlpha by animateFloatAsState(
+        targetValue = if (isSelected) 0.15f else 0.0f,
+        animationSpec = tween(400),
+        label = "glowAlpha"
+    )
 
-    Card(
-        modifier = modifier
+    Column(
+        modifier = Modifier
             .graphicsLayer {
                 scaleX = scale
                 scaleY = scale
                 this.translationY = translationY.toPx()
-                this.alpha = alpha
             }
-            .clickable(onClick = onClick)
-            .testTag(testTag)
-            .shadow(
-                elevation = if (isSelected) 6.dp else 2.dp,
-                shape = RoundedCornerShape(16.dp),
-                ambientColor = accentColor.copy(alpha = 0.3f),
-                spotColor = accentColor.copy(alpha = 0.5f)
-            ),
-        colors = CardDefaults.cardColors(containerColor = if (isSelected) bgColor else Color.White),
-        shape = RoundedCornerShape(16.dp),
-        border = BorderStroke(1.5.dp, if (isSelected) accentColor else SoftDivider)
+            .clickable(
+                onClick = onClick,
+                interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+                indication = null
+            )
+            .testTag(testTag),
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 14.dp, vertical = 16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+        Box(
+            modifier = Modifier.size(68.dp),
+            contentAlignment = Alignment.Center
         ) {
-            // Elegant modern indicator: simple clean colored dot
-            Box(
-                modifier = Modifier
-                    .size(8.dp)
-                    .clip(CircleShape)
-                    .background(if (isSelected) accentColor else PencilGray.copy(alpha = 0.3f))
-            )
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            Text(
-                text = label,
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold,
-                fontFamily = FontFamily.SansSerif,
-                color = if (isSelected) onTextColor else PencilCharcoal,
-                textAlign = TextAlign.Center
-            )
-
-            Spacer(modifier = Modifier.height(6.dp))
-
-            // Modern capsule badge for remaining count
-            Box(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(if (isSelected) accentColor.copy(alpha = 0.15f) else Color(0xFFF1F5F9))
-                    .padding(horizontal = 10.dp, vertical = 4.dp)
-            ) {
-                Text(
-                    text = countText,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = if (isSelected) accentColor else PencilGray,
-                    fontFamily = FontFamily.SansSerif
+            if (isSelected) {
+                Box(
+                    modifier = Modifier
+                        .size(76.dp)
+                        .background(accentColor.copy(alpha = selectionGlowAlpha), CircleShape)
                 )
             }
+
+            Box(
+                modifier = Modifier
+                    .size(64.dp)
+                    .shadow(
+                        elevation = if (isSelected) 10.dp else 2.dp,
+                        shape = CircleShape,
+                        ambientColor = accentColor.copy(alpha = 0.3f),
+                        spotColor = accentColor.copy(alpha = 0.6f)
+                    )
+                    .background(if (isSelected) bgColor else Color.White, CircleShape)
+                    .border(
+                        width = if (isSelected) 3.dp else 1.5.dp,
+                        color = if (isSelected) accentColor else SoftDivider,
+                        shape = CircleShape
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    name.firstOrNull()?.uppercase().toString(),
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.Bold,
+                    fontFamily = FontFamily.Serif,
+                    color = if (isSelected) onTextColor else PencilCharcoal
+                )
+
+                if (pendingCount > 0) {
+                    Box(
+                        modifier = Modifier
+                            .size(21.dp)
+                            .align(Alignment.TopEnd)
+                            .background(accentColor, CircleShape)
+                            .border(2.dp, Color.White, CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = pendingCount.toString(),
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Black,
+                            color = Color.White
+                        )
+                    }
+                }
+            }
         }
+
+        Spacer(modifier = Modifier.height(6.dp))
+
+        Text(
+            text = name,
+            fontSize = 13.sp,
+            fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.Bold,
+            fontFamily = FontFamily.SansSerif,
+            color = if (isSelected) accentColor else PencilCharcoal
+        )
     }
 }
 
@@ -1197,56 +1391,50 @@ fun TaskCard(
     onToggle: () -> Unit,
     onDelete: () -> Unit
 ) {
-    val ownerAccentColor = if (task.profileOwner == "AMMA" || task.profileOwner == "user_mom") AmmaPrimary else AppaPrimary
-    val ownerBgColor = if (task.profileOwner == "AMMA" || task.profileOwner == "user_mom") AmmaSurface else AppaSurface
-
     val checkBgColor by animateColorAsState(
-        targetValue = if (task.isCompleted) ownerAccentColor else Color.Transparent,
+        targetValue = if (task.isCompleted) StitchIndigo else Color.Transparent,
+        animationSpec = tween(300),
         label = "checkBgColor"
     )
     val checkBorderColor by animateColorAsState(
-        targetValue = if (task.isCompleted) ownerAccentColor else PencilGray.copy(alpha = 0.4f),
+        targetValue = if (task.isCompleted) StitchIndigo else Color(0xFFC7D2FE), // border-indigo-200
+        animationSpec = tween(300),
         label = "checkBorderColor"
     )
     val checkScale by animateFloatAsState(
-        targetValue = if (task.isCompleted) 1.0f else 0.9f,
+        targetValue = if (task.isCompleted) 1.0f else 0.85f,
+        animationSpec = spring(
+            dampingRatio = 0.45f,
+            stiffness = Spring.StiffnessMedium
+        ),
         label = "checkScale"
     )
 
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 6.dp)
+            .padding(horizontal = 16.dp, vertical = 7.dp)
             .shadow(
                 elevation = 2.dp,
-                shape = RoundedCornerShape(12.dp)
+                shape = RoundedCornerShape(24.dp),
+                ambientColor = Color.Black.copy(alpha = 0.02f),
+                spotColor = Color.Black.copy(alpha = 0.02f)
             )
             .testTag("task_item_${task.id}"),
-        colors = CardDefaults.cardColors(containerColor = PaperCardLight),
-        shape = RoundedCornerShape(12.dp),
-        border = BorderStroke(1.dp, SoftDivider)
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        shape = RoundedCornerShape(24.dp),
+        border = BorderStroke(1.dp, Color(0xFFF9FAFB))
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = 12.dp, horizontal = 12.dp),
+                .padding(vertical = 18.dp, horizontal = 18.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Elegant left Owner accent indicator stripe
+            // Modern Checkbox
             Box(
                 modifier = Modifier
-                    .width(4.dp)
-                    .height(38.dp)
-                    .clip(CircleShape)
-                    .background(ownerAccentColor)
-            )
-
-            Spacer(modifier = Modifier.width(8.dp))
-
-            // Massive 48dp check target with smooth animations
-            Box(
-                modifier = Modifier
-                    .size(48.dp)
+                    .size(44.dp)
                     .clip(CircleShape)
                     .clickable(onClick = onToggle)
                     .testTag("check_task_${task.id}"),
@@ -1255,17 +1443,17 @@ fun TaskCard(
                 Box(
                     modifier = Modifier
                         .size(24.dp)
+                        .graphicsLayer {
+                            scaleX = checkScale
+                            scaleY = checkScale
+                        }
                         .clip(CircleShape)
                         .background(checkBgColor)
                         .border(
                             width = 2.dp,
                             color = checkBorderColor,
                             shape = CircleShape
-                        )
-                        .graphicsLayer {
-                            scaleX = checkScale
-                            scaleY = checkScale
-                        },
+                        ),
                     contentAlignment = Alignment.Center
                 ) {
                     if (task.isCompleted) {
@@ -1273,59 +1461,79 @@ fun TaskCard(
                             imageVector = Icons.Default.Check,
                             contentDescription = LocalizedStrings.get("completed_label", language),
                             tint = Color.White,
-                            modifier = Modifier.size(16.dp)
+                            modifier = Modifier.size(14.dp)
                         )
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.width(4.dp))
+            Spacer(modifier = Modifier.width(10.dp))
 
-            // Task title and styled badge row
+            // Task details
             Column(
                 modifier = Modifier
                     .weight(1f)
-                    .padding(vertical = 2.dp, horizontal = 4.dp)
+                    .padding(vertical = 2.dp)
             ) {
                 Text(
                     text = task.title,
                     fontSize = 17.sp,
                     lineHeight = 22.sp,
                     fontFamily = FontFamily.SansSerif,
-                    fontWeight = FontWeight.Medium,
-                    color = if (task.isCompleted) PencilGray.copy(alpha = 0.55f) else PencilCharcoal,
+                    fontWeight = FontWeight.SemiBold,
+                    color = if (task.isCompleted) StitchSlate500.copy(alpha = 0.6f) else StitchSlate800,
                     textDecoration = if (task.isCompleted) TextDecoration.LineThrough else TextDecoration.None,
                     modifier = Modifier.fillMaxWidth()
                 )
                 
-                // Real-time added/completed member premium badge pills
-                if (task.createdByName.isNotBlank() || task.completedByName?.isNotBlank() == true) {
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(6.dp))
-                            .background(ownerBgColor)
-                            .padding(horizontal = 8.dp, vertical = 3.dp)
+                Spacer(modifier = Modifier.height(6.dp))
+                
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    // Profile initials badge
+                    if (task.createdByName.isNotBlank()) {
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(99.dp))
+                                .background(Color(0xFFEEF2FF)) // bg-indigo-50
+                                .padding(horizontal = 8.dp, vertical = 3.dp)
+                        ) {
+                            Text(
+                                text = task.createdByName,
+                                fontSize = 10.sp,
+                                fontFamily = FontFamily.SansSerif,
+                                fontWeight = FontWeight.Bold,
+                                color = StitchIndigo
+                            )
+                        }
+                    }
+                    
+                    // No due date or metadata
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(start = 2.dp)
                     ) {
+                        Canvas(modifier = Modifier.size(10.dp)) {
+                            drawCircle(color = StitchSlate500.copy(alpha = 0.5f), style = Stroke(width = 1.dp.toPx()))
+                            drawLine(color = StitchSlate500.copy(alpha = 0.5f), start = center, end = Offset(center.x, center.y - 3.dp.toPx()), strokeWidth = 1.dp.toPx())
+                            drawLine(color = StitchSlate500.copy(alpha = 0.5f), start = center, end = Offset(center.x + 2.dp.toPx(), center.y), strokeWidth = 1.dp.toPx())
+                        }
+                        Spacer(modifier = Modifier.width(4.dp))
                         Text(
-                            text = if (task.isCompleted && task.completedByName != null) {
-                                String.format(LocalizedStrings.get("completed_by", language), task.completedByName)
-                            } else {
-                                String.format(LocalizedStrings.get("added_by", language), task.createdByName)
-                            },
-                            fontSize = 11.sp,
-                            fontFamily = FontFamily.SansSerif,
-                            fontWeight = FontWeight.Bold,
-                            color = ownerAccentColor
+                            text = "No due date",
+                            fontSize = 10.sp,
+                            color = StitchSlate500
                         )
                     }
                 }
             }
 
-            // Throw away button (massive 48dp target)
+            // Modern Delete Icon
             Box(
                 modifier = Modifier
-                    .size(48.dp)
+                    .size(36.dp)
                     .clip(CircleShape)
                     .clickable(onClick = onDelete)
                     .testTag("delete_task_${task.id}"),
@@ -1334,8 +1542,8 @@ fun TaskCard(
                 Icon(
                     imageVector = Icons.Default.Delete,
                     contentDescription = "Delete memo",
-                    tint = RedPencil.copy(alpha = 0.8f),
-                    modifier = Modifier.size(20.dp)
+                    tint = StitchSlate500.copy(alpha = 0.4f),
+                    modifier = Modifier.size(18.dp)
                 )
             }
         }
@@ -1347,32 +1555,31 @@ fun EmptyPaperNote(
     message: String,
     accentColor: Color
 ) {
-    Card(
+    Box(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 20.dp, vertical = 24.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        shape = RoundedCornerShape(16.dp),
-        border = BorderStroke(1.dp, SoftDivider)
+            .padding(horizontal = 18.dp, vertical = 20.dp)
+            .clip(RoundedCornerShape(24.dp))
+            .background(Color.White.copy(alpha = 0.6f))
+            .border(1.dp, Color.White.copy(alpha = 0.5f), RoundedCornerShape(24.dp))
+            .padding(vertical = 36.dp, horizontal = 24.dp),
+        contentAlignment = Alignment.Center
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 40.dp, horizontal = 24.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // High-end glowing empty state icon
+            val animatedAccentColor by animateColorAsState(targetValue = accentColor, label = "emptyAccent")
             Box(
                 modifier = Modifier
                     .size(56.dp)
                     .clip(CircleShape)
-                    .background(accentColor.copy(alpha = 0.1f)),
+                    .background(animatedAccentColor.copy(alpha = 0.12f)),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = Icons.Default.Check,
                     contentDescription = null,
-                    tint = accentColor,
+                    tint = animatedAccentColor,
                     modifier = Modifier.size(28.dp)
                 )
             }
@@ -1380,8 +1587,18 @@ fun EmptyPaperNote(
             Spacer(modifier = Modifier.height(20.dp))
 
             Text(
+                text = "Nothing here yet",
+                fontSize = 18.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = PencilCharcoal,
+                textAlign = TextAlign.Center
+            )
+
+            Spacer(modifier = Modifier.height(6.dp))
+
+            Text(
                 text = message,
-                fontSize = 16.sp,
+                fontSize = 15.sp,
                 fontFamily = FontFamily.SansSerif,
                 fontWeight = FontWeight.Medium,
                 color = PencilGray,
@@ -1403,41 +1620,41 @@ fun CompletedHeaderSection(
         modifier = Modifier
             .padding(horizontal = 16.dp, vertical = 8.dp)
             .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .background(Color(0xFFF1F5F9))
+            .clip(RoundedCornerShape(20.dp))
+            .background(Color.White.copy(alpha = 0.45f))
+            .border(1.dp, Color.White.copy(alpha = 0.4f), RoundedCornerShape(20.dp))
             .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+            .padding(horizontal = 16.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(
-                imageVector = Icons.Default.Check,
+                imageVector = if (isExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
                 contentDescription = null,
-                tint = PencilGray,
-                modifier = Modifier.size(16.dp)
+                tint = PencilCharcoal,
+                modifier = Modifier.size(20.dp)
             )
             Spacer(modifier = Modifier.width(8.dp))
             Text(
                 text = LocalizedStrings.get("completed_title", language),
                 fontSize = 15.sp,
-                fontWeight = FontWeight.SemiBold,
+                fontWeight = FontWeight.Bold,
                 fontFamily = FontFamily.SansSerif,
                 color = PencilCharcoal
             )
         }
         
-        // Count badge pill
         Box(
             modifier = Modifier
                 .clip(CircleShape)
-                .background(PencilGray.copy(alpha = 0.2f))
-                .padding(horizontal = 10.dp, vertical = 4.dp)
+                .background(PencilCharcoal.copy(alpha = 0.08f))
+                .padding(horizontal = 12.dp, vertical = 4.dp)
         ) {
             Text(
                 text = count.toString(),
                 fontSize = 12.sp,
-                fontWeight = FontWeight.Bold,
+                fontWeight = FontWeight.ExtraBold,
                 color = PencilCharcoal,
                 fontFamily = FontFamily.SansSerif
             )
@@ -1472,47 +1689,62 @@ fun AddTaskDialog(
     val themeColor = if (isMom) AmmaPrimary else AppaPrimary
     val themeSurfaceColor = if (isMom) AmmaSurface else AppaSurface
 
-    // Mic soundwave pulse transition
+    // Mic soundwave pulse concentric rings transition
     val infiniteTransition = rememberInfiniteTransition(label = "pulse")
-    val pulseScale by infiniteTransition.animateFloat(
+    val pulseScale1 by infiniteTransition.animateFloat(
         initialValue = 1.0f,
-        targetValue = 1.35f,
+        targetValue = 1.5f,
         animationSpec = infiniteRepeatable(
-            animation = tween(1200, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse
+            animation = tween(1400, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
         ),
-        label = "pulseScale"
+        label = "pulseScale1"
     )
-    val pulseAlpha by infiniteTransition.animateFloat(
-        initialValue = 0.4f,
+    val pulseAlpha1 by infiniteTransition.animateFloat(
+        initialValue = 0.5f,
         targetValue = 0.0f,
         animationSpec = infiniteRepeatable(
-            animation = tween(1200, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse
+            animation = tween(1400, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
         ),
-        label = "pulseAlpha"
+        label = "pulseAlpha1"
+    )
+
+    val pulseScale2 by infiniteTransition.animateFloat(
+        initialValue = 1.0f,
+        targetValue = 1.8f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1400, delayMillis = 400, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "pulseScale2"
+    )
+    val pulseAlpha2 by infiniteTransition.animateFloat(
+        initialValue = 0.3f,
+        targetValue = 0.0f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1400, delayMillis = 400, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "pulseAlpha2"
     )
 
     Dialog(onDismissRequest = onDismiss) {
-        Card(
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(vertical = 8.dp)
                 .shadow(
-                    elevation = 16.dp,
-                    shape = RoundedCornerShape(24.dp),
-                    ambientColor = themeColor.copy(alpha = 0.2f),
-                    spotColor = themeColor.copy(alpha = 0.3f)
-                ),
-            colors = CardDefaults.cardColors(containerColor = Color.White),
-            shape = RoundedCornerShape(24.dp),
-            border = BorderStroke(1.5.dp, themeColor.copy(alpha = 0.5f))
+                    elevation = 20.dp,
+                    shape = RoundedCornerShape(28.dp),
+                    ambientColor = themeColor.copy(alpha = 0.25f),
+                    spotColor = themeColor.copy(alpha = 0.4f)
+                )
+                .background(Color.White, RoundedCornerShape(28.dp))
+                .border(1.dp, Color.White.copy(alpha = 0.5f), RoundedCornerShape(28.dp))
+                .padding(24.dp)
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(24.dp)
-            ) {
+            Column(modifier = Modifier.fillMaxWidth()) {
                 // Header of the modern dialog
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -1522,7 +1754,7 @@ fun AddTaskDialog(
                     Text(
                         text = LocalizedStrings.get("add_task", language),
                         style = MaterialTheme.typography.titleLarge.copy(
-                            fontSize = 22.sp,
+                            fontSize = 21.sp,
                             fontWeight = FontWeight.Bold,
                             color = PencilCharcoal
                         )
@@ -1531,7 +1763,7 @@ fun AddTaskDialog(
                     // Profile label badge pill
                     Box(
                         modifier = Modifier
-                            .clip(RoundedCornerShape(8.dp))
+                            .clip(RoundedCornerShape(10.dp))
                             .background(themeColor.copy(alpha = 0.12f))
                             .padding(horizontal = 10.dp, vertical = 6.dp)
                     ) {
@@ -1542,8 +1774,8 @@ fun AddTaskDialog(
                                 LocalizedStrings.get("appa", language)
                             },
                             style = MaterialTheme.typography.labelMedium.copy(
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Black,
                                 color = themeColor
                             )
                         )
@@ -1560,26 +1792,26 @@ fun AddTaskDialog(
                         Text(
                             text = LocalizedStrings.get("enter_task_hint", language),
                             style = MaterialTheme.typography.bodyLarge.copy(
-                                fontSize = 16.sp,
-                                color = PencilGray.copy(alpha = 0.5f)
+                                fontSize = 15.sp,
+                                color = PencilGray.copy(alpha = 0.45f)
                             )
                         )
                     },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(130.dp)
+                        .height(120.dp)
                         .focusRequester(focusRequester)
                         .testTag("add_task_input"),
                     textStyle = MaterialTheme.typography.bodyLarge.copy(
-                        fontSize = 17.sp,
+                        fontSize = 16.sp,
                         color = PencilCharcoal,
-                        lineHeight = 24.sp
+                        lineHeight = 23.sp
                     ),
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = themeColor,
+                        focusedBorderColor = themeColor.copy(alpha = 0.7f),
                         unfocusedBorderColor = SoftDivider,
-                        focusedContainerColor = Color(0xFFF8FAFC),
-                        unfocusedContainerColor = Color(0xFFF8FAFC),
+                        focusedContainerColor = Color(0xFFFDFBF7),
+                        unfocusedContainerColor = Color(0xFFFDFBF7),
                         focusedTextColor = PencilCharcoal,
                         unfocusedTextColor = PencilCharcoal
                     ),
@@ -1588,11 +1820,11 @@ fun AddTaskDialog(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Voice assistant pulsing hint box
+                // Voice assistant pulsing hint box (concentric waves)
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(16.dp))
+                        .clip(RoundedCornerShape(20.dp))
                         .background(
                             Brush.linearGradient(
                                 colors = listOf(themeSurfaceColor, Color.White)
@@ -1600,26 +1832,24 @@ fun AddTaskDialog(
                         )
                         .border(
                             width = 1.dp,
-                            color = themeColor.copy(alpha = 0.2f),
-                            shape = RoundedCornerShape(16.dp)
+                            color = themeColor.copy(alpha = 0.15f),
+                            shape = RoundedCornerShape(20.dp)
                         )
                         .clickable(onClick = onVoiceClick)
                         .padding(horizontal = 16.dp, vertical = 12.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Pulsing microphone container
                     Box(
-                        modifier = Modifier.size(44.dp),
+                        modifier = Modifier.size(48.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        // Glowing pulsing wave circle
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()
                                 .graphicsLayer {
-                                    scaleX = pulseScale
-                                    scaleY = pulseScale
-                                    alpha = pulseAlpha
+                                    scaleX = pulseScale1
+                                    scaleY = pulseScale1
+                                    alpha = pulseAlpha1
                                 }
                                 .background(
                                     color = themeColor.copy(alpha = 0.35f),
@@ -1627,7 +1857,20 @@ fun AddTaskDialog(
                                 )
                         )
 
-                        // Base inner circle
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .graphicsLayer {
+                                    scaleX = pulseScale2
+                                    scaleY = pulseScale2
+                                    alpha = pulseAlpha2
+                                }
+                                .background(
+                                    color = themeColor.copy(alpha = 0.2f),
+                                    shape = CircleShape
+                                )
+                        )
+
                         Box(
                             modifier = Modifier
                                 .size(32.dp)
@@ -1682,7 +1925,7 @@ fun AddTaskDialog(
                             .testTag("add_task_cancel"),
                         border = BorderStroke(1.5.dp, SoftDivider),
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = PencilCharcoal),
-                        shape = RoundedCornerShape(14.dp)
+                        shape = RoundedCornerShape(16.dp)
                     ) {
                         Text(
                             text = LocalizedStrings.get("cancel", language),
@@ -1705,18 +1948,18 @@ fun AddTaskDialog(
                             .weight(1f)
                             .height(50.dp)
                             .shadow(
-                                elevation = if (textState.isNotBlank()) 4.dp else 0.dp,
-                                shape = RoundedCornerShape(14.dp),
+                                elevation = if (textState.isNotBlank()) 6.dp else 0.dp,
+                                shape = RoundedCornerShape(16.dp),
                                 ambientColor = themeColor.copy(alpha = 0.3f),
-                                spotColor = themeColor.copy(alpha = 0.5f)
+                                spotColor = themeColor.copy(alpha = 0.6f)
                             )
                             .testTag("add_task_save"),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = themeColor,
                             contentColor = Color.White,
-                            disabledContainerColor = themeColor.copy(alpha = 0.4f)
+                            disabledContainerColor = themeColor.copy(alpha = 0.35f)
                         ),
-                        shape = RoundedCornerShape(14.dp)
+                        shape = RoundedCornerShape(16.dp)
                     ) {
                         Text(
                             text = LocalizedStrings.get("save", language),
@@ -1740,37 +1983,35 @@ fun DeleteConfirmDialog(
     onConfirm: () -> Unit
 ) {
     Dialog(onDismissRequest = onDismiss) {
-        Card(
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(8.dp)
                 .shadow(
-                    elevation = 16.dp,
-                    shape = RoundedCornerShape(24.dp),
+                    elevation = 20.dp,
+                    shape = RoundedCornerShape(28.dp),
                     ambientColor = RedPencil.copy(alpha = 0.2f),
-                    spotColor = RedPencil.copy(alpha = 0.3f)
-                ),
-            colors = CardDefaults.cardColors(containerColor = Color.White),
-            shape = RoundedCornerShape(24.dp),
-            border = BorderStroke(1.5.dp, RedPencil.copy(alpha = 0.3f))
+                    spotColor = RedPencil.copy(alpha = 0.4f)
+                )
+                .background(Color.White, RoundedCornerShape(28.dp))
+                .border(1.dp, Color.White.copy(alpha = 0.5f), RoundedCornerShape(28.dp))
+                .padding(24.dp),
+            contentAlignment = Alignment.Center
         ) {
             Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(24.dp),
+                modifier = Modifier.fillMaxWidth(),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Modern glowing danger trash icon
                 Box(
                     modifier = Modifier
                         .size(60.dp)
-                        .background(RedPencil.copy(alpha = 0.12f), shape = CircleShape),
+                        .background(RedPencil.copy(alpha = 0.1f), shape = CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
                     Box(
                         modifier = Modifier
                             .size(42.dp)
-                            .background(RedPencil.copy(alpha = 0.18f), shape = CircleShape),
+                            .background(RedPencil.copy(alpha = 0.16f), shape = CircleShape),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
@@ -1809,7 +2050,7 @@ fun DeleteConfirmDialog(
                             .testTag("delete_confirm_cancel"),
                         border = BorderStroke(1.5.dp, SoftDivider),
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = PencilCharcoal),
-                        shape = RoundedCornerShape(14.dp)
+                        shape = RoundedCornerShape(16.dp)
                     ) {
                         Text(
                             text = LocalizedStrings.get("delete_no", language),
@@ -1828,16 +2069,16 @@ fun DeleteConfirmDialog(
                             .height(50.dp)
                             .shadow(
                                 elevation = 6.dp,
-                                shape = RoundedCornerShape(14.dp),
+                                shape = RoundedCornerShape(16.dp),
                                 ambientColor = RedPencil.copy(alpha = 0.3f),
-                                spotColor = RedPencil.copy(alpha = 0.5f)
+                                spotColor = RedPencil.copy(alpha = 0.6f)
                             )
                             .testTag("delete_confirm_ok"),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = RedPencil,
                             contentColor = Color.White
                         ),
-                        shape = RoundedCornerShape(14.dp)
+                        shape = RoundedCornerShape(16.dp)
                     ) {
                         Text(
                             text = LocalizedStrings.get("delete_yes", language),
