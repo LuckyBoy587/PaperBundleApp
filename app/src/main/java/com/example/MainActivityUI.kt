@@ -892,84 +892,74 @@ fun BoardOverviewCard(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 20.dp)
-            .clip(RoundedCornerShape(24.dp))
+            .clip(RoundedCornerShape(20.dp))
             .background(Color.White)
-            .border(width = 1.dp, color = Color(0xFFF1F5F9), shape = RoundedCornerShape(24.dp))
+            .border(width = 1.dp, color = Color(0xFFF1F5F9), shape = RoundedCornerShape(20.dp))
             .shadow(
                 elevation = 2.dp,
-                shape = RoundedCornerShape(24.dp),
+                shape = RoundedCornerShape(20.dp),
                 ambientColor = Color.Black.copy(alpha = 0.01f),
                 spotColor = Color.Black.copy(alpha = 0.02f)
             )
-            .padding(16.dp)
+            .padding(horizontal = 16.dp, vertical = 12.dp)
     ) {
-        Column {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Column {
-                    Text(
-                        text = "Overview",
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = StitchSlate800
-                    )
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(
-                        text = "Task summary",
-                        fontSize = 10.sp,
-                        color = StitchSlate500
-                    )
-                }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // 1. Progress Ring
+            StitchProgressRing(progress = progress)
+            
+            Spacer(modifier = Modifier.width(16.dp))
+            
+            // 2. Info and Stats Column
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "Overview",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = StitchSlate800
+                )
                 
-                StitchProgressRing(progress = progress)
-            }
-            
-            Spacer(modifier = Modifier.height(16.dp))
-            
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                StitchStatChip(
-                    label = "Pending",
-                    value = pendingCount.toString(),
-                    tintColor = StitchRed500,
-                    bgColor = StitchRed50,
-                    icon = {
-                        Canvas(modifier = Modifier.size(10.dp)) {
-                            val strokeWidth = 1.2.dp.toPx()
-                            drawCircle(color = StitchRed500.copy(alpha = 0.8f), style = Stroke(width = strokeWidth))
-                            drawLine(color = StitchRed500.copy(alpha = 0.8f), start = center, end = Offset(center.x, center.y - 3.dp.toPx()), strokeWidth = strokeWidth)
-                            drawLine(color = StitchRed500.copy(alpha = 0.8f), start = center, end = Offset(center.x + 2.dp.toPx(), center.y), strokeWidth = strokeWidth)
-                        }
-                    },
-                    modifier = Modifier.weight(1f)
-                )
-                StitchStatChip(
-                    label = "Done",
-                    value = completedCount.toString(),
-                    tintColor = StitchGreen500,
-                    bgColor = StitchGreen50,
-                    icon = {
-                        Icon(imageVector = Icons.Default.Check, contentDescription = null, tint = StitchGreen500, modifier = Modifier.size(10.dp))
-                    },
-                    modifier = Modifier.weight(1f)
-                )
-                StitchStatChip(
-                    label = "Total",
-                    value = totalCount.toString(),
-                    tintColor = StitchBlue500,
-                    bgColor = StitchBlue50,
-                    icon = {
-                        Canvas(modifier = Modifier.size(10.dp)) {
-                            val strokeWidth = 1.2.dp.toPx()
-                            drawLine(color = StitchBlue500.copy(alpha = 0.8f), start = Offset(0f, 2.dp.toPx()), end = Offset(size.width, 2.dp.toPx()), strokeWidth = strokeWidth)
-                            drawLine(color = StitchBlue500.copy(alpha = 0.8f), start = Offset(0f, 5.dp.toPx()), end = Offset(size.width, 5.dp.toPx()), strokeWidth = strokeWidth)
-                            drawLine(color = StitchBlue500.copy(alpha = 0.8f), start = Offset(0f, 8.dp.toPx()), end = Offset(size.width, 8.dp.toPx()), strokeWidth = strokeWidth)
-                        }
-                    },
-                    modifier = Modifier.weight(1f)
-                )
+                Spacer(modifier = Modifier.height(2.dp))
+                
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    // Pending
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Box(modifier = Modifier.size(6.dp).background(StitchRed500, CircleShape))
+                        Text(
+                            text = "Pending: $pendingCount",
+                            fontSize = 10.sp,
+                            color = StitchSlate500,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                    
+                    // Done
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Box(modifier = Modifier.size(6.dp).background(StitchGreen500, CircleShape))
+                        Text(
+                            text = "Done: $completedCount",
+                            fontSize = 10.sp,
+                            color = StitchSlate500,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                    
+                    // Total
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Box(modifier = Modifier.size(6.dp).background(StitchBlue500, CircleShape))
+                        Text(
+                            text = "Total: $totalCount",
+                            fontSize = 10.sp,
+                            color = StitchSlate500,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
             }
         }
     }
