@@ -8,7 +8,7 @@ import android.util.Log
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
@@ -239,12 +239,12 @@ fun SharedFamilyBoardScreen(viewModel: TaskViewModel, session: UserSession) {
     val curProfile by viewModel.curProfile.collectAsState()
     val activeTasks by viewModel.tasks.collectAsState()
     val allTasks by viewModel.allTasks.collectAsState()
-    val familyMembers by viewModel.familyMembers.collectAsState()
-
-    var isAddingTask by remember { mutableStateOf(false) }
+    val familyMembers by viewModel.familyMembers.collectAsState()    var isAddingTask by remember { mutableStateOf(false) }
     var taskToDelete by remember { mutableStateOf<Task?>(null) }
     var showProfileSelector by remember { mutableStateOf(false) }
     var isCompletedSheetOpen by remember { mutableStateOf(false) }
+    var selectedTab by remember { mutableStateOf(0) }
+    var showSettingsMenu by remember { mutableStateOf(false) }
 
     // Speech-to-Text Setup
     var voiceTextForInput by remember { mutableStateOf("") }
@@ -311,7 +311,7 @@ fun SharedFamilyBoardScreen(viewModel: TaskViewModel, session: UserSession) {
                         MainHeader(
                             initial = initialLetter,
                             language = language,
-                            onAvatarClick = { showProfileSelector = true },
+                            onAvatarClick = { selectedTab = 1 },
                             onLanguageClick = {
                                 viewModel.setLanguage(if (language == Language.EN) Language.TA else Language.EN)
                             }
@@ -326,153 +326,299 @@ fun SharedFamilyBoardScreen(viewModel: TaskViewModel, session: UserSession) {
                     .padding(innerPadding)
                     .padding(bottom = 86.dp) // Leave space for bottom nav
             ) {
-                // A. Tasks Header with Filters (Fixed) - soft card container
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(start = 16.dp, end = 16.dp, top = 4.dp)
-                        .shadow(
-                            elevation = 4.dp,
-                            shape = RoundedCornerShape(20.dp),
-                            ambientColor = Color.Black.copy(alpha = 0.05f),
-                            spotColor = Color.Black.copy(alpha = 0.07f)
-                        )
-                        .clip(RoundedCornerShape(20.dp))
-                        .background(Color.White)
-                ) {
-                    TasksSectionHeader()
-                }
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                // B. Scrollable Dynamic Tasks List taking up remaining center part
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxWidth()
-                ) {
-                    if (filteredTasks.isEmpty()) {
-                        val activeMemberName = (activeMember?.name ?: "Member").substringBefore(" ")
-                        val emptyMsg = String.format(LocalizedStrings.get("no_pending_member", language), activeMemberName)
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 20.dp, vertical = 12.dp)
-                                .shadow(
-                                    elevation = 3.dp,
-                                    shape = RoundedCornerShape(24.dp),
-                                    ambientColor = Color.Black.copy(alpha = 0.05f),
-                                    spotColor = Color.Black.copy(alpha = 0.07f)
-                                )
-                                .clip(RoundedCornerShape(24.dp))
-                                .background(Color.White)
-                                .padding(24.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = emptyMsg,
-                                color = StitchSlate500,
-                                fontSize = 14.sp,
-                                textAlign = TextAlign.Center
-                            )
-                        }
-                    } else {
-                        LazyColumn(
-                            modifier = Modifier.fillMaxSize(),
-                            verticalArrangement = Arrangement.spacedBy(8.dp),
-                            contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp)
-                        ) {
-                            items(filteredTasks, key = { it.id }) { task ->
-                                TaskCard(
-                                    task = task,
-                                    onToggle = { viewModel.toggleTaskComplete(task) },
-                                    onDelete = { taskToDelete = task }
-                                )
-                            }
-                        }
-                    }
-                }
-
-                // C. Completed Tasks Pull-up Bar
-                val completedTasksCount = remember(activeTasks) { activeTasks.count { it.isCompleted } }
-                if (completedTasksCount > 0) {
-                    Spacer(modifier = Modifier.height(8.dp))
+                if (selectedTab == 0) {
+                    // A. Tasks Header with Filters (Fixed) - soft card container
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 16.dp)
+                            .padding(start = 16.dp, end = 16.dp, top = 4.dp)
                             .shadow(
                                 elevation = 4.dp,
-                                shape = RoundedCornerShape(16.dp),
+                                shape = RoundedCornerShape(20.dp),
                                 ambientColor = Color.Black.copy(alpha = 0.05f),
                                 spotColor = Color.Black.copy(alpha = 0.07f)
                             )
-                            .clip(RoundedCornerShape(16.dp))
+                            .clip(RoundedCornerShape(20.dp))
                             .background(Color.White)
-                            .clickable { isCompletedSheetOpen = true }
-                            .draggable(
-                                orientation = Orientation.Vertical,
-                                state = rememberDraggableState { delta ->
-                                    if (delta < -3f) {
-                                        isCompletedSheetOpen = true
-                                    }
-                                }
-                            )
-                            .padding(horizontal = 16.dp, vertical = 12.dp)
                     ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        TasksSectionHeader()
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // B. Scrollable Dynamic Tasks List taking up remaining center part
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth()
+                    ) {
+                        if (filteredTasks.isEmpty()) {
+                            val activeMemberName = (activeMember?.name ?: "Member").substringBefore(" ")
+                            val emptyMsg = String.format(LocalizedStrings.get("no_pending_member", language), activeMemberName)
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 20.dp, vertical = 12.dp)
+                                    .shadow(
+                                        elevation = 3.dp,
+                                        shape = RoundedCornerShape(24.dp),
+                                        ambientColor = Color.Black.copy(alpha = 0.05f),
+                                        spotColor = Color.Black.copy(alpha = 0.07f)
+                                    )
+                                    .clip(RoundedCornerShape(24.dp))
+                                    .background(Color.White)
+                                    .padding(24.dp),
+                                contentAlignment = Alignment.Center
                             ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(24.dp)
-                                        .background(Color(0xFFECFDF5), CircleShape),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Check,
-                                        contentDescription = "Completed icon",
-                                        tint = StitchGreen500,
-                                        modifier = Modifier.size(14.dp)
+                                Text(
+                                    text = emptyMsg,
+                                    color = StitchSlate500,
+                                    fontSize = 14.sp,
+                                    textAlign = TextAlign.Center
+                                )
+                            }
+                        } else {
+                            LazyColumn(
+                                modifier = Modifier.fillMaxSize(),
+                                verticalArrangement = Arrangement.spacedBy(8.dp),
+                                contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp)
+                            ) {
+                                items(filteredTasks, key = { it.id }) { task ->
+                                    TaskCard(
+                                        task = task,
+                                        onToggle = { viewModel.toggleTaskComplete(task) },
+                                        onDelete = { taskToDelete = task }
                                     )
                                 }
+                            }
+                        }
+                    }
+
+                    // C. Completed Tasks Pull-up Bar
+                    val completedTasksCount = remember(activeTasks) { activeTasks.count { it.isCompleted } }
+                    if (completedTasksCount > 0) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp)
+                                .shadow(
+                                    elevation = 4.dp,
+                                    shape = RoundedCornerShape(16.dp),
+                                    ambientColor = Color.Black.copy(alpha = 0.05f),
+                                    spotColor = Color.Black.copy(alpha = 0.07f)
+                                )
+                                .clip(RoundedCornerShape(16.dp))
+                                .background(Color.White)
+                                .clickable { isCompletedSheetOpen = true }
+                                .draggable(
+                                    orientation = Orientation.Vertical,
+                                    state = rememberDraggableState { delta ->
+                                        if (delta < -3f) {
+                                            isCompletedSheetOpen = true
+                                        }
+                                    }
+                                )
+                                .padding(horizontal = 16.dp, vertical = 12.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(24.dp)
+                                            .background(Color(0xFFECFDF5), CircleShape),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Check,
+                                            contentDescription = "Completed icon",
+                                            tint = StitchGreen500,
+                                            modifier = Modifier.size(14.dp)
+                                        )
+                                    }
+                                    Text(
+                                        text = "Completed Tasks",
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = StitchSlate800
+                                    )
+                                }
+                                
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(100.dp))
+                                            .background(Color(0xFFEEF2FF))
+                                            .padding(horizontal = 8.dp, vertical = 2.dp)
+                                    ) {
+                                        Text(
+                                            text = "$completedTasksCount",
+                                            color = StitchIndigo,
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+                                    // Small pull-up arrow indicator
+                                    Text(
+                                        text = "▲",
+                                        fontSize = 10.sp,
+                                        color = StitchSlate500
+                                    )
+                                }
+                            }
+                        }
+                    }
+                } else if (selectedTab == 1) {
+                    // Beautiful Family Directory screen content directly above navbar
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(horizontal = 16.dp, vertical = 4.dp)
+                    ) {
+                        // Header section
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .shadow(
+                                    elevation = 4.dp,
+                                    shape = RoundedCornerShape(20.dp),
+                                    ambientColor = Color.Black.copy(alpha = 0.05f),
+                                    spotColor = Color.Black.copy(alpha = 0.07f)
+                                )
+                                .clip(RoundedCornerShape(20.dp))
+                                .background(Color.White)
+                                .padding(18.dp)
+                        ) {
+                            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                 Text(
-                                    text = "Completed Tasks",
-                                    fontSize = 14.sp,
+                                    text = "Family Directory",
+                                    fontSize = 18.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = StitchSlate800
                                 )
-                            }
-                            
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(4.dp)
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(100.dp))
-                                        .background(Color(0xFFEEF2FF))
-                                        .padding(horizontal = 8.dp, vertical = 2.dp)
-                                ) {
-                                    Text(
-                                        text = "$completedTasksCount",
-                                        color = StitchIndigo,
-                                        fontSize = 10.sp,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                }
-                                // Small pull-up arrow indicator
                                 Text(
-                                    text = "▲",
-                                    fontSize = 10.sp,
+                                    text = "Select a family member to manage and view their tasks",
+                                    fontSize = 12.sp,
                                     color = StitchSlate500
                                 )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        // List of Members
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxWidth()
+                        ) {
+                            if (familyMembers.isEmpty()) {
+                                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                    Text(
+                                        text = "No family members found.",
+                                        fontSize = 14.sp,
+                                        color = StitchSlate500
+                                    )
+                                }
+                            } else {
+                                LazyColumn(
+                                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                                    modifier = Modifier.fillMaxSize()
+                                ) {
+                                    items(familyMembers) { member ->
+                                        val isSelected = member.uid == curProfile
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .shadow(
+                                                    elevation = if (isSelected) 6.dp else 2.dp,
+                                                    shape = RoundedCornerShape(20.dp),
+                                                    ambientColor = if (isSelected) StitchIndigo.copy(alpha = 0.1f) else Color.Black.copy(alpha = 0.03f),
+                                                    spotColor = if (isSelected) StitchIndigo.copy(alpha = 0.15f) else Color.Black.copy(alpha = 0.05f)
+                                                )
+                                                .clip(RoundedCornerShape(20.dp))
+                                                .background(if (isSelected) Color(0xFFF5F7FF) else Color.White)
+                                                .border(
+                                                    width = if (isSelected) 1.5.dp else 1.dp,
+                                                    color = if (isSelected) StitchIndigo else StitchBorder,
+                                                    shape = RoundedCornerShape(20.dp)
+                                                )
+                                                .clickable {
+                                                    viewModel.setProfile(member.uid)
+                                                    selectedTab = 0 // Switch back to Tasks tab
+                                                }
+                                                .padding(16.dp)
+                                        ) {
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.SpaceBetween,
+                                                modifier = Modifier.fillMaxWidth()
+                                            ) {
+                                                Row(
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                                                ) {
+                                                    // Dynamic Letter Avatar with high-quality styling
+                                                    Box(
+                                                        modifier = Modifier
+                                                            .size(44.dp)
+                                                            .background(
+                                                                if (isSelected) StitchIndigo else StitchIndigo.copy(alpha = 0.1f),
+                                                                CircleShape
+                                                            ),
+                                                        contentAlignment = Alignment.Center
+                                                    ) {
+                                                        Text(
+                                                            text = member.name.take(1).uppercase(),
+                                                            color = if (isSelected) Color.White else StitchIndigo,
+                                                            fontWeight = FontWeight.Bold,
+                                                            fontSize = 18.sp
+                                                        )
+                                                    }
+
+                                                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                                        Text(
+                                                            text = member.name,
+                                                            fontSize = 15.sp,
+                                                            fontWeight = FontWeight.Bold,
+                                                            color = StitchSlate800
+                                                        )
+                                                        Text(
+                                                            text = member.email,
+                                                            fontSize = 12.sp,
+                                                            color = StitchSlate500
+                                                        )
+                                                    }
+                                                }
+
+                                                if (isSelected) {
+                                                    Box(
+                                                        modifier = Modifier
+                                                            .background(StitchIndigo.copy(alpha = 0.15f), RoundedCornerShape(12.dp))
+                                                            .padding(horizontal = 10.dp, vertical = 4.dp)
+                                                    ) {
+                                                        Text(
+                                                            text = "Active",
+                                                            color = StitchIndigo,
+                                                            fontSize = 11.sp,
+                                                            fontWeight = FontWeight.Bold
+                                                        )
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
@@ -480,31 +626,33 @@ fun SharedFamilyBoardScreen(viewModel: TaskViewModel, session: UserSession) {
             }
         }
 
-        // Floating Action Button
-        Box(
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(bottom = 88.dp, end = 24.dp)
-                .size(64.dp)
-                .shadow(
-                    elevation = 12.dp,
-                    shape = CircleShape,
-                    ambientColor = StitchIndigo.copy(alpha = 0.4f),
-                    spotColor = StitchIndigo.copy(alpha = 0.6f)
+        // Floating Action Button (Only shown on Tasks tab)
+        if (selectedTab == 0) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(bottom = 88.dp, end = 24.dp)
+                    .size(64.dp)
+                    .shadow(
+                        elevation = 12.dp,
+                        shape = CircleShape,
+                        ambientColor = StitchIndigo.copy(alpha = 0.4f),
+                        spotColor = StitchIndigo.copy(alpha = 0.6f)
+                    )
+                    .background(Brush.linearGradient(colors = listOf(StitchPurple, StitchIndigo)), CircleShape)
+                    .clickable {
+                        voiceTextForInput = ""
+                        isAddingTask = true
+                    },
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Add,
+                    contentDescription = "Add Task",
+                    tint = Color.White,
+                    modifier = Modifier.size(32.dp)
                 )
-                .background(Brush.linearGradient(colors = listOf(StitchPurple, StitchIndigo)), CircleShape)
-                .clickable {
-                    voiceTextForInput = ""
-                    isAddingTask = true
-                },
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                imageVector = Icons.Default.Add,
-                contentDescription = "Add Task",
-                tint = Color.White,
-                modifier = Modifier.size(32.dp)
-            )
+            }
         }
 
         // Floating Language/Status Switcher Badge removed
@@ -523,59 +671,210 @@ fun SharedFamilyBoardScreen(viewModel: TaskViewModel, session: UserSession) {
                     spotColor = Color.Black.copy(alpha = 0.08f)
                 )
                 .background(Color.White, RoundedCornerShape(28.dp))
-                .padding(horizontal = 16.dp),
+                .padding(horizontal = 8.dp, vertical = 8.dp),
             contentAlignment = Alignment.Center
         ) {
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceAround,
+                modifier = Modifier.fillMaxWidth().fillMaxHeight(),
+                horizontalArrangement = Arrangement.SpaceEvenly,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 // Item 1: Tasks
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(2.dp),
-                    modifier = Modifier.clickable { /* Already on Tasks */ }
+                val isTasksActive = selectedTab == 0
+                Box(
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(if (isTasksActive) StitchIndigo.copy(alpha = 0.1f) else Color.Transparent)
+                        .clickable {
+                            selectedTab = 0
+                            showSettingsMenu = false
+                        }
+                        .padding(horizontal = 20.dp),
+                    contentAlignment = Alignment.Center
                 ) {
-                    HomeNavIcon(tint = StitchIndigo)
-                    Text(
-                        text = "Tasks",
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = StitchIndigo
-                    )
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(0.dp)
+                    ) {
+                        HomeNavIcon(tint = if (isTasksActive) StitchIndigo else StitchSlate500)
+                        Text(
+                            text = "Tasks",
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = if (isTasksActive) StitchIndigo else StitchSlate500
+                        )
+                    }
                 }
 
                 // Item 2: Family
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(2.dp),
-                    modifier = Modifier.clickable { showProfileSelector = true }
+                val isFamilyActive = selectedTab == 1
+                Box(
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(if (isFamilyActive) StitchIndigo.copy(alpha = 0.1f) else Color.Transparent)
+                        .clickable {
+                            selectedTab = 1
+                            showSettingsMenu = false
+                        }
+                        .padding(horizontal = 20.dp),
+                    contentAlignment = Alignment.Center
                 ) {
-                    FamilyNavIcon(tint = StitchSlate500)
-                    Text(
-                        text = "Family",
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = StitchSlate500
-                    )
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(0.dp)
+                    ) {
+                        FamilyNavIcon(tint = if (isFamilyActive) StitchIndigo else StitchSlate500)
+                        Text(
+                            text = "Family",
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = if (isFamilyActive) StitchIndigo else StitchSlate500
+                        )
+                    }
                 }
 
                 // Item 3: Settings
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(2.dp),
-                    modifier = Modifier.clickable {
-                        Toast.makeText(context, "Version 2026.1 - Designed by Kowshik B", Toast.LENGTH_LONG).show()
-                    }
+                val isSettingsActive = showSettingsMenu
+                Box(
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(if (isSettingsActive) StitchIndigo.copy(alpha = 0.1f) else Color.Transparent)
+                        .clickable {
+                            if (showSettingsMenu) {
+                                showSettingsMenu = false
+                                selectedTab = 0
+                            } else {
+                                showSettingsMenu = true
+                                selectedTab = 2
+                            }
+                        }
+                        .padding(horizontal = 20.dp),
+                    contentAlignment = Alignment.Center
                 ) {
-                    SettingsNavIcon(tint = StitchSlate500)
-                    Text(
-                        text = "Settings",
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = StitchSlate500
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(0.dp)
+                    ) {
+                        SettingsNavIcon(tint = if (isSettingsActive) StitchIndigo else StitchSlate500)
+                        Text(
+                            text = "Settings",
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = if (isSettingsActive) StitchIndigo else StitchSlate500
+                        )
+                    }
+                }
+            }
+        }
+
+        // Settings floating dismiss scrim
+        if (showSettingsMenu) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null
+                    ) {
+                        showSettingsMenu = false
+                        selectedTab = 0
+                    }
+            )
+        }
+
+        // Settings floating popup menu
+        AnimatedVisibility(
+            visible = showSettingsMenu,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 92.dp)
+                .fillMaxWidth(0.92f),
+            enter = fadeIn(tween(180)) + slideInVertically(tween(220)) { it / 3 },
+            exit = fadeOut(tween(150)) + slideOutVertically(tween(180)) { it / 3 }
+        ) {
+            Box(
+                modifier = Modifier
+                    .shadow(
+                        elevation = 24.dp,
+                        shape = RoundedCornerShape(20.dp),
+                        ambientColor = Color.Black.copy(alpha = 0.12f),
+                        spotColor = Color.Black.copy(alpha = 0.16f)
                     )
+                    .background(Color.White, RoundedCornerShape(20.dp))
+                    .border(1.dp, StitchBorder, RoundedCornerShape(20.dp))
+                    .padding(horizontal = 16.dp, vertical = 12.dp)
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(0.dp)) {
+                    // App info row
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 4.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column {
+                            Text(
+                                text = "PaperBundle",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = StitchSlate800
+                            )
+                            Text(
+                                text = "Version 2026.1",
+                                fontSize = 11.sp,
+                                color = StitchSlate500
+                            )
+                        }
+                    }
+
+                    // Divider
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(1.dp)
+                            .background(StitchBorder)
+                    )
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    // Logout Button
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(Color(0xFFFFF1F1))
+                            .clickable {
+                                showSettingsMenu = false
+                                viewModel.logout(context)
+                            }
+                            .padding(horizontal = 16.dp, vertical = 12.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(28.dp)
+                                    .background(StitchRed500.copy(alpha = 0.12f), CircleShape),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(text = "↩", fontSize = 14.sp, color = StitchRed500)
+                            }
+                            Text(
+                                text = "Logout",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = StitchRed500
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(4.dp))
                 }
             }
         }
