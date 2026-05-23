@@ -15,6 +15,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -63,7 +64,8 @@ import com.google.android.gms.common.api.ApiException
 import kotlin.math.max
 
 // Stitch Dashboard Colors
-val StitchBg = Color(0xFFF8F9FE)
+val StitchBg = Color(0xFFF1F5F9) // Premium Modern Slate-100 app background (for gorgeous contrast with white sheets)
+val StitchBorder = Color(0xFFE2E8F0) // Premium Modern Slate-200 border for ultra-crisp, defined card boundaries
 val StitchIndigo = Color(0xFF6366F1)
 val StitchPurple = Color(0xFFA855F7)
 val StitchSlate800 = Color(0xFF1E293B)
@@ -149,7 +151,7 @@ fun GoogleLoginScreen(viewModel: TaskViewModel) {
                 .fillMaxWidth(0.88f)
                 .clip(RoundedCornerShape(32.dp))
                 .background(Color.White)
-                .border(BorderStroke(1.dp, Color(0xFFF1F5F9)), RoundedCornerShape(32.dp))
+                .border(BorderStroke(1.dp, StitchBorder), RoundedCornerShape(32.dp))
                 .padding(32.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
@@ -167,7 +169,7 @@ fun GoogleLoginScreen(viewModel: TaskViewModel) {
             Spacer(modifier = Modifier.height(24.dp))
 
             Text(
-                text = "Baski Home",
+                text = "Baski Family",
                 fontSize = 28.sp,
                 fontWeight = FontWeight.Bold,
                 color = StitchSlate800
@@ -285,14 +287,33 @@ fun SharedFamilyBoardScreen(viewModel: TaskViewModel, session: UserSession) {
             modifier = Modifier.fillMaxSize(),
             containerColor = Color.Transparent,
             topBar = {
-                MainHeader(
-                    initial = initialLetter,
-                    language = language,
-                    onAvatarClick = { showProfileSelector = true },
-                    onLanguageClick = {
-                        viewModel.setLanguage(if (language == Language.EN) Language.TA else Language.EN)
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .statusBarsPadding()
+                        .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 8.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .shadow(
+                                elevation = 6.dp,
+                                shape = RoundedCornerShape(24.dp),
+                                ambientColor = Color.Black.copy(alpha = 0.06f),
+                                spotColor = Color.Black.copy(alpha = 0.08f)
+                            )
+                            .clip(RoundedCornerShape(24.dp))
+                            .background(Color.White)
+                    ) {
+                        MainHeader(
+                            initial = initialLetter,
+                            language = language,
+                            onAvatarClick = { showProfileSelector = true },
+                            onLanguageClick = {
+                                viewModel.setLanguage(if (language == Language.EN) Language.TA else Language.EN)
+                            }
+                        )
                     }
-                )
+                }
             }
         ) { innerPadding ->
             Column(
@@ -301,11 +322,27 @@ fun SharedFamilyBoardScreen(viewModel: TaskViewModel, session: UserSession) {
                     .padding(innerPadding)
                     .padding(bottom = 86.dp) // Leave space for bottom nav
             ) {
-                // A. Tasks Header with Filters (Fixed)
-                TasksSectionHeader(
-                    currentFilter = taskFilter,
-                    onFilterChange = { taskFilter = it }
-                )
+                // A. Tasks Header with Filters (Fixed) - soft card container
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 16.dp, end = 16.dp, top = 4.dp)
+                        .shadow(
+                            elevation = 4.dp,
+                            shape = RoundedCornerShape(20.dp),
+                            ambientColor = Color.Black.copy(alpha = 0.05f),
+                            spotColor = Color.Black.copy(alpha = 0.07f)
+                        )
+                        .clip(RoundedCornerShape(20.dp))
+                        .background(Color.White)
+                ) {
+                    TasksSectionHeader(
+                        currentFilter = taskFilter,
+                        onFilterChange = { taskFilter = it }
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
 
                 // B. Scrollable Dynamic Tasks List taking up remaining center part
                 Box(
@@ -324,9 +361,14 @@ fun SharedFamilyBoardScreen(viewModel: TaskViewModel, session: UserSession) {
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(horizontal = 20.dp, vertical = 12.dp)
+                                .shadow(
+                                    elevation = 3.dp,
+                                    shape = RoundedCornerShape(24.dp),
+                                    ambientColor = Color.Black.copy(alpha = 0.05f),
+                                    spotColor = Color.Black.copy(alpha = 0.07f)
+                                )
                                 .clip(RoundedCornerShape(24.dp))
                                 .background(Color.White)
-                                .border(1.dp, Color(0xFFF1F5F9), RoundedCornerShape(24.dp))
                                 .padding(24.dp),
                             contentAlignment = Alignment.Center
                         ) {
@@ -407,7 +449,6 @@ fun SharedFamilyBoardScreen(viewModel: TaskViewModel, session: UserSession) {
                     spotColor = Color.Black.copy(alpha = 0.08f)
                 )
                 .background(Color.White, RoundedCornerShape(28.dp))
-                .border(1.dp, Color(0xFFF1F5F9), RoundedCornerShape(28.dp))
                 .padding(horizontal = 16.dp),
             contentAlignment = Alignment.Center
         ) {
@@ -516,88 +557,89 @@ fun MainHeader(
     onAvatarClick: () -> Unit,
     onLanguageClick: () -> Unit
 ) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .statusBarsPadding()
-            .padding(start = 20.dp, end = 20.dp, top = 24.dp, bottom = 12.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
+    Column {
         Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(20.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            // Profile Letter Icon
-            Box(
-                modifier = Modifier
-                    .size(48.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(StitchIndigo)
-                    .clickable { onAvatarClick() },
-                contentAlignment = Alignment.Center
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Text(
-                    text = initial,
-                    color = Color.White,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 20.sp
-                )
-            }
-
-            Column {
-                Text(
-                    text = "Welcome back,",
-                    fontSize = 12.sp,
-                    color = StitchSlate500
-                )
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = "Baski Home",
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = StitchSlate800
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(text = "🏡", fontSize = 14.sp)
-                }
-            }
-        }
-
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            // Notification Icon
-            Box(
-                modifier = Modifier
-                    .size(48.dp)
-                    .clip(CircleShape)
-                    .background(Color.White)
-                    .border(1.dp, Color(0xFFF1F5F9), CircleShape)
-                    .clickable { /* No-op badge click */ },
-                contentAlignment = Alignment.Center
-            ) {
-                BellNavIcon(tint = StitchSlate500)
-                // Red badge
+                // Profile Letter Icon
                 Box(
                     modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .padding(top = 12.dp, end = 12.dp)
-                        .size(8.dp)
-                        .background(Color.Red, CircleShape)
-                        .border(1.5.dp, Color.White, CircleShape)
-                )
+                        .size(48.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(StitchIndigo)
+                        .clickable { onAvatarClick() },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = initial,
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 20.sp
+                    )
+                }
+
+                Column {
+                    Text(
+                        text = "Welcome back,",
+                        fontSize = 12.sp,
+                        color = StitchSlate500
+                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = "Baski Home",
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = StitchSlate800
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(text = "🏡", fontSize = 14.sp)
+                    }
+                }
             }
 
-            // Globe Language Toggle Icon
-            Box(
-                modifier = Modifier
-                    .size(48.dp)
-                    .clip(CircleShape)
-                    .background(Color.White)
-                    .border(1.dp, Color(0xFFF1F5F9), CircleShape)
-                    .clickable { onLanguageClick() },
-                contentAlignment = Alignment.Center
-            ) {
-                GlobeNavIcon(tint = StitchSlate500)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                // Notification Icon
+                Box(
+                    modifier = Modifier
+                        .size(48.dp)
+                        .clip(CircleShape)
+                        .background(Color.White)
+                        .border(1.dp, StitchBorder, CircleShape)
+                        .clickable { /* No-op badge click */ },
+                    contentAlignment = Alignment.Center
+                ) {
+                    BellNavIcon(tint = StitchSlate500)
+                    // Red badge
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(top = 12.dp, end = 12.dp)
+                            .size(8.dp)
+                            .background(Color.Red, CircleShape)
+                            .border(1.5.dp, Color.White, CircleShape)
+                    )
+                }
+
+                // Globe Language Toggle Icon
+                Box(
+                    modifier = Modifier
+                        .size(48.dp)
+                        .clip(CircleShape)
+                        .background(Color.White)
+                        .border(1.dp, StitchBorder, CircleShape)
+                        .clickable { onLanguageClick() },
+                    contentAlignment = Alignment.Center
+                ) {
+                    GlobeNavIcon(tint = StitchSlate500)
+                }
             }
         }
     }
@@ -624,7 +666,7 @@ fun TasksSectionHeader(
         
         Row(
             modifier = Modifier
-                .background(StitchGray100, RoundedCornerShape(12.dp))
+                .background(Color(0xFFE8EBF8), RoundedCornerShape(12.dp))
                 .padding(3.dp),
             horizontalArrangement = Arrangement.spacedBy(4.dp)
         ) {
@@ -635,7 +677,12 @@ fun TasksSectionHeader(
                     modifier = Modifier
                         .clip(RoundedCornerShape(8.dp))
                         .background(if (isSelected) Color.White else Color.Transparent)
-                        .clickable { onFilterChange(filter) }
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null
+                        ) {
+                            onFilterChange(filter)
+                        }
                         .padding(horizontal = 12.dp, vertical = 6.dp),
                     contentAlignment = Alignment.Center
                 ) {
@@ -643,7 +690,7 @@ fun TasksSectionHeader(
                         text = filter,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
-                        color = if (isSelected) StitchIndigo else StitchSlate500
+                        color = if (isSelected) StitchIndigo else Color(0xFF8B95A8)
                     )
                 }
             }
@@ -662,13 +709,12 @@ fun TaskCard(
             .fillMaxWidth()
             .padding(horizontal = 20.dp, vertical = 6.dp)
             .shadow(
-                elevation = 4.dp,
+                elevation = 5.dp,
                 shape = RoundedCornerShape(24.dp),
-                ambientColor = Color.Black.copy(alpha = 0.02f),
-                spotColor = Color.Black.copy(alpha = 0.04f)
+                ambientColor = Color.Black.copy(alpha = 0.06f),
+                spotColor = Color.Black.copy(alpha = 0.08f)
             )
             .background(Color.White, RoundedCornerShape(24.dp))
-            .border(1.dp, Color(0xFFF1F5F9), RoundedCornerShape(24.dp))
             .padding(20.dp)
     ) {
         Row(
@@ -729,12 +775,12 @@ fun TaskCard(
                         Box(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(100.dp))
-                                .background(Color(0xFFEEF2FF))
+                                .background(StitchIndigo)
                                 .padding(horizontal = 8.dp, vertical = 2.dp)
                         ) {
                             Text(
                                 text = task.createdByName,
-                                color = StitchIndigo,
+                                color = Color.White,
                                 fontSize = 10.sp,
                                 fontWeight = FontWeight.Bold
                             )
@@ -894,12 +940,11 @@ fun BoardOverviewCard(
             .padding(horizontal = 20.dp)
             .clip(RoundedCornerShape(20.dp))
             .background(Color.White)
-            .border(width = 1.dp, color = Color(0xFFF1F5F9), shape = RoundedCornerShape(20.dp))
             .shadow(
-                elevation = 2.dp,
+                elevation = 5.dp,
                 shape = RoundedCornerShape(20.dp),
-                ambientColor = Color.Black.copy(alpha = 0.01f),
-                spotColor = Color.Black.copy(alpha = 0.02f)
+                ambientColor = Color.Black.copy(alpha = 0.06f),
+                spotColor = Color.Black.copy(alpha = 0.08f)
             )
             .padding(horizontal = 16.dp, vertical = 12.dp)
     ) {
@@ -1217,7 +1262,7 @@ fun AddTaskDialog(
                 .padding(vertical = 8.dp)
                 .shadow(elevation = 24.dp, shape = RoundedCornerShape(28.dp))
                 .background(Color.White, RoundedCornerShape(28.dp))
-                .border(1.dp, Color(0xFFF1F5F9), RoundedCornerShape(28.dp))
+                .border(2.dp, Color(0xFFD4D7E8), RoundedCornerShape(28.dp))
                 .padding(24.dp)
         ) {
             Column(
@@ -1256,7 +1301,7 @@ fun AddTaskDialog(
                         modifier = Modifier
                             .size(48.dp)
                             .clip(CircleShape)
-                            .background(Color(0xFFEEF2FF))
+                            .background(Color(0xFFDFE7F9))
                             .clickable { onVoiceClick() },
                         contentAlignment = Alignment.Center
                     ) {
@@ -1329,7 +1374,7 @@ fun DeleteConfirmDialog(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(16.dp)
-                .border(1.dp, Color(0xFFF1F5F9), RoundedCornerShape(24.dp))
+                .border(1.dp, StitchBorder, RoundedCornerShape(24.dp))
         ) {
             Column(
                 modifier = Modifier.padding(24.dp),
@@ -1400,7 +1445,7 @@ fun FamilySelectorDialog(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(16.dp)
-                .border(1.dp, Color(0xFFF1F5F9), RoundedCornerShape(28.dp))
+                .border(1.dp, StitchBorder, RoundedCornerShape(28.dp))
         ) {
             Column(
                 modifier = Modifier.padding(24.dp),
