@@ -677,34 +677,7 @@ fun SharedFamilyBoardScreen(viewModel: TaskViewModel, session: UserSession) {
             }
         }
 
-        // Floating Action Button (Only shown on Tasks tab)
-        if (selectedTab == 0) {
-            Box(
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(bottom = 88.dp, end = 24.dp)
-                    .size(64.dp)
-                    .shadow(
-                        elevation = 12.dp,
-                        shape = CircleShape,
-                        ambientColor = StitchIndigo.copy(alpha = 0.4f),
-                        spotColor = StitchIndigo.copy(alpha = 0.6f)
-                    )
-                    .background(Brush.linearGradient(colors = listOf(StitchPurple, StitchIndigo)), CircleShape)
-                    .clickable {
-                        voiceTextForInput = ""
-                        isAddingTask = true
-                    },
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Add,
-                    contentDescription = "Add Task",
-                    tint = Color.White,
-                    modifier = Modifier.size(32.dp)
-                )
-            }
-        }
+
 
         // Floating Language/Status Switcher Badge removed
 
@@ -1401,14 +1374,8 @@ fun MemberTodoBox(
                 .fillMaxWidth()
                 .padding(start = 20.dp, end = 16.dp, top = 16.dp, bottom = 16.dp)
         ) {
-            // Box Header - clickable if expandable
-            val headerModifier = if (onToggleExpand != null) {
-                Modifier
-                    .fillMaxWidth()
-                    .clickable { onToggleExpand() }
-            } else {
-                Modifier.fillMaxWidth()
-            }
+            // Box Header - no longer clickable itself
+            val headerModifier = Modifier.fillMaxWidth()
 
             Row(
                 modifier = headerModifier,
@@ -1514,7 +1481,8 @@ fun MemberTodoBox(
                             modifier = Modifier
                                 .size(28.dp)
                                 .clip(CircleShape)
-                                .background(Color(0xFFF1F5F9)),
+                                .background(Color(0xFFF1F5F9))
+                                .clickable { onToggleExpand() },
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
