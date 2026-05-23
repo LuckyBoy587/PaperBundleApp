@@ -5,8 +5,27 @@ import android.util.Log
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.room.TypeConverters
+import androidx.room.TypeConverter
 
-@Database(entities = [Task::class], version = 2, exportSchema = false)
+class Converters {
+    @TypeConverter
+    fun fromSyncState(value: SyncState): String {
+        return value.name
+    }
+
+    @TypeConverter
+    fun toSyncState(value: String): SyncState {
+        return try {
+            SyncState.valueOf(value)
+        } catch (_: Exception) {
+            SyncState.SYNCED
+        }
+    }
+}
+
+@Database(entities = [Task::class], version = 3, exportSchema = false)
+@TypeConverters(Converters::class)
 abstract class TaskDatabase : RoomDatabase() {
     abstract val taskDao: TaskDao
 

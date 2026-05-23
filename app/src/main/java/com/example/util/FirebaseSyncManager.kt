@@ -1,15 +1,20 @@
 package com.example.util
 
 import android.content.Context
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.util.Log
 import com.example.BuildConfig
 import com.example.data.Task
 import com.example.data.TaskDao
+import com.example.data.SyncState
 import com.google.firebase.FirebaseApp
 import com.google.firebase.FirebaseOptions
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.FirebaseFirestoreSettings
+import com.google.firebase.firestore.PersistentCacheSettings
 import com.google.firebase.firestore.ListenerRegistration
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -41,6 +46,8 @@ object FirebaseSyncManager {
     private const val PREDEFINED_FAMILY_ID = "fam_baskaran_home"
     private const val PREDEFINED_FAMILY_NAME = "Baski Home"
 
+    private var appContext: Context? = null
+
     var isFirebaseInitialized = false
         private set
 
@@ -70,6 +77,7 @@ object FirebaseSyncManager {
 
     fun init(context: Context) {
         Log.d(TAG, "FirebaseSyncManager: init() called: isFirebaseInitialized=$isFirebaseInitialized")
+        appContext = context.applicationContext
         if (isFirebaseInitialized) return
 
         try {
@@ -107,8 +115,40 @@ object FirebaseSyncManager {
             }
         }
 
+        if (isFirebaseInitialized) {
+            try {
+                val db = FirebaseFirestore.getInstance()
+                val settings = FirebaseFirestoreSettings.Builder()
+                    .setLocalCacheSettings(
+                        PersistentCacheSettings.newBuilder()
+                            .setSizeBytes(100 * 1024 * 1024) // 100 MB Cache Size
+                            .build()
+                    )
+                    .build()
+                db.firestoreSettings = settings
+                Log.d(TAG, "FirebaseSyncManager: Explicit persistent cache (100MB) configured for Firestore.")
+            } catch (e: Exception) {
+                Log.e(TAG, "FirebaseSyncManager: Error configuring Firestore settings", e)
+            }
+        }
+
         // Restore session from local SharedPreferences for fast startup (<2s)
         loadSavedSession(context)
+    }
+
+    /**
+     * Checks if the device has an active internet connection.
+     */
+    fun isNetworkAvailable(): Boolean {
+        val context = appContext ?: return false
+        return try {
+            val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+            val activeNetwork = cm.activeNetwork ?: return false
+            val capabilities = cm.getNetworkCapabilities(activeNetwork) ?: return false
+            capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+        } catch (e: Exception) {
+            false
+        }
     }
 
     private fun loadSavedSession(context: Context) {
@@ -242,7 +282,7 @@ object FirebaseSyncManager {
 
 
 
-    // Realtime synchronizer and observer of tasks
+    // Realtime synchronizer and observer of family members
     fun startSyncing(taskDao: TaskDao) {
         val session = _currentUserSession.value ?: return
         val familyId = session.familyId ?: return
@@ -254,54 +294,6 @@ object FirebaseSyncManager {
 
         if (isFirebaseInitialized) {
             val db = FirebaseFirestore.getInstance()
-            activeListener = db.collection("families").document(familyId).collection("tasks")
-                .addSnapshotListener { snapshot, error ->
-                    if (error != null) {
-                        Log.e(TAG, "FirebaseSyncManager: Sync observation failed", error)
-                        return@addSnapshotListener
-                    }
-                    if (snapshot != null) {
-                        Log.d(TAG, "FirebaseSyncManager: Task snapshot listener triggered: docCount=${snapshot.size()}")
-                        val firestoreTasks = snapshot.documents.mapNotNull { doc ->
-                            try {
-                                val title = doc.getString("title") ?: ""
-                                val isCompleted = doc.getBoolean("completed") ?: false
-                                val profileOwner = doc.getString("profileOwner") ?: "GENERAL"
-                                val createdBy = doc.getString("createdBy") ?: "Unknown"
-                                val completedBy = doc.getString("completedBy")
-                                val createdAt = doc.getLong("createdAt") ?: System.currentTimeMillis()
-                                val completedAt = doc.getLong("completedAt")
-
-                                Task(
-                                    id = doc.id,
-                                    title = title,
-                                    isCompleted = isCompleted,
-                                    profileOwner = profileOwner,
-                                    createdAt = createdAt,
-                                    completedAt = completedAt,
-                                    createdByUid = doc.getString("createdByUid") ?: "",
-                                    createdByName = createdBy,
-                                    completedByUid = doc.getString("completedByUid"),
-                                    completedByName = completedBy,
-                                    familyId = familyId,
-                                    firebaseSynced = true
-                                )
-                            } catch (e: Exception) {
-                                null
-                            }
-                        }
-
-                        // Mirror tasks into Room DB on background Thread
-                        ioScope.launch {
-                            Log.d(TAG, "FirebaseSyncManager: Mirroring ${firestoreTasks.size} firestore tasks to local Room...")
-                            // Find deleted tasks: tasks in local Room that belong to current family, but aren't in Firestore anymore
-                            // To keep it simple, we replace/update
-                            for (task in firestoreTasks) {
-                                taskDao.insertTask(task)
-                            }
-                        }
-                    }
-                }
 
             memberListener = db.collection("families").document(familyId).collection("members")
                 .addSnapshotListener { snapshot, error ->
@@ -348,6 +340,10 @@ object FirebaseSyncManager {
         // Push task to firestore
 
         if (isFirebaseInitialized) {
+            val isOnline = isNetworkAvailable()
+            val initialSyncState = if (isOnline) SyncState.SYNCING else SyncState.PENDING_WRITE
+            LocalSyncTracker.updateSyncState(task.id, initialSyncState)
+
             val db = FirebaseFirestore.getInstance()
             val taskMap = hashMapOf(
                 "title" to task.title,
@@ -364,9 +360,11 @@ object FirebaseSyncManager {
                 .set(taskMap)
                 .addOnSuccessListener {
                     Log.d(TAG, "FirebaseSyncManager: pushTaskAdditionOrUpdate SUCCESS: Task saved successfully in cloud Firestore")
+                    LocalSyncTracker.updateSyncState(task.id, SyncState.SYNCED)
                 }
                 .addOnFailureListener { e ->
                     Log.e(TAG, "FirebaseSyncManager: Error writing task doc to firestore", e)
+                    LocalSyncTracker.updateSyncState(task.id, SyncState.ERROR)
                 }
         }
     }
@@ -380,14 +378,20 @@ object FirebaseSyncManager {
         // Push task deletion to firestore
 
         if (isFirebaseInitialized) {
+            val isOnline = isNetworkAvailable()
+            val initialSyncState = if (isOnline) SyncState.SYNCING else SyncState.PENDING_WRITE
+            LocalSyncTracker.updateSyncState(taskId, initialSyncState)
+
             val db = FirebaseFirestore.getInstance()
             db.collection("families").document(familyId).collection("tasks").document(taskId)
                 .delete()
                 .addOnSuccessListener {
                     Log.d(TAG, "FirebaseSyncManager: pushTaskDeletion SUCCESS: Task doc removed successfully from firestore")
+                    LocalSyncTracker.clearSyncState(taskId)
                 }
                 .addOnFailureListener { e ->
                     Log.e(TAG, "FirebaseSyncManager: Error deleting task doc from firestore", e)
+                    LocalSyncTracker.updateSyncState(taskId, SyncState.ERROR)
                 }
         }
     }

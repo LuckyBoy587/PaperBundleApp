@@ -18,3 +18,4 @@ local.properties
 debug.keystore.base64
 .idea
 ./app/google-services.json2
+Screenshots/*

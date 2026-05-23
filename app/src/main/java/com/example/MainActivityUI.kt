@@ -27,6 +27,13 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Warning
+import com.example.data.SyncState
+import com.example.util.FirebaseSyncManager
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -239,6 +246,18 @@ fun SharedFamilyBoardScreen(viewModel: TaskViewModel, session: UserSession) {
     val curProfile by viewModel.curProfile.collectAsState()
     val activeTasks by viewModel.tasks.collectAsState()
     val allTasks by viewModel.allTasks.collectAsState()
+
+    val isNetworkAvailable = remember { mutableStateOf(FirebaseSyncManager.isNetworkAvailable()) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            isNetworkAvailable.value = FirebaseSyncManager.isNetworkAvailable()
+            kotlinx.coroutines.delay(3000)
+        }
+    }
+
+    val hasPendingWrites = remember(activeTasks) {
+        activeTasks.any { it.syncState == SyncState.PENDING_WRITE || it.syncState == SyncState.SYNCING }
+    }
     val familyMembers by viewModel.familyMembers.collectAsState()    var isAddingTask by remember { mutableStateOf(false) }
     var taskToDelete by remember { mutableStateOf<Task?>(null) }
     var showProfileSelector by remember { mutableStateOf(false) }
@@ -312,14 +331,16 @@ fun SharedFamilyBoardScreen(viewModel: TaskViewModel, session: UserSession) {
             modifier = Modifier.fillMaxSize(),
             containerColor = Color.Transparent,
             topBar = {
-                Box(
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .statusBarsPadding()
-                        .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 8.dp)
+                        .padding(top = 8.dp, bottom = 4.dp)
                 ) {
                     Box(
                         modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp)
                             .shadow(
                                 elevation = 6.dp,
                                 shape = RoundedCornerShape(24.dp),
@@ -338,6 +359,14 @@ fun SharedFamilyBoardScreen(viewModel: TaskViewModel, session: UserSession) {
                             }
                         )
                     }
+
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    GlobalSyncStatusBar(
+                        isNetworkAvailable = isNetworkAvailable.value,
+                        hasPendingWrites = hasPendingWrites,
+                        isFirebaseInitialized = FirebaseSyncManager.isFirebaseInitialized
+                    )
                 }
             }
         ) { innerPadding ->
@@ -1324,7 +1353,7 @@ fun TaskCard(
                     
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         // Creator Badge
                         Box(
@@ -1337,7 +1366,9 @@ fun TaskCard(
                                 text = task.createdByName,
                                 color = Color.White,
                                 fontSize = 10.sp,
-                                fontWeight = FontWeight.Bold
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1,
+                                softWrap = false
                             )
                         }
 
@@ -1358,7 +1389,78 @@ fun TaskCard(
                             Text(
                                 text = "No due date",
                                 fontSize = 10.sp,
-                                color = StitchSlate500
+                                color = StitchSlate500,
+                                maxLines = 1,
+                                softWrap = false
+                            )
+                        }
+
+                        // Vertical bar divider
+                        Box(
+                            modifier = Modifier
+                                .width(1.dp)
+                                .height(10.dp)
+                                .background(Color(0xFFE2E8F0))
+                        )
+
+                        // Sync State Badge
+                        val stateColor = when (task.syncState) {
+                            SyncState.SYNCED -> StitchGreen500
+                            SyncState.CACHED -> Color(0xFF64748B) // Slate-500
+                            SyncState.PENDING_WRITE -> Color(0xFFD97706) // Amber-600
+                            SyncState.SYNCING -> StitchIndigo
+                            SyncState.ERROR -> Color.Red
+                        }
+                        val stateIcon = when (task.syncState) {
+                            SyncState.SYNCED -> Icons.Default.CheckCircle
+                            SyncState.CACHED -> Icons.Default.Info
+                            SyncState.PENDING_WRITE -> Icons.Default.Refresh
+                            SyncState.SYNCING -> Icons.Default.Refresh
+                            SyncState.ERROR -> Icons.Default.Warning
+                        }
+                        val stateText = when (task.syncState) {
+                            SyncState.SYNCED -> "Synced"
+                            SyncState.CACHED -> "Cached"
+                            SyncState.PENDING_WRITE -> "Pending"
+                            SyncState.SYNCING -> "Syncing"
+                            SyncState.ERROR -> "Sync Error"
+                        }
+
+                        val rotation = if (task.syncState == SyncState.SYNCING) {
+                            val infiniteTransition = rememberInfiniteTransition(label = "SyncingRot")
+                            val angle by infiniteTransition.animateFloat(
+                                initialValue = 0f,
+                                targetValue = 360f,
+                                animationSpec = infiniteRepeatable(
+                                    animation = tween(1200, easing = LinearEasing),
+                                    repeatMode = RepeatMode.Restart
+                                ),
+                                label = "RotAngle"
+                            )
+                            angle
+                        } else 0f
+
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Icon(
+                                imageVector = stateIcon,
+                                contentDescription = stateText,
+                                tint = stateColor,
+                                modifier = Modifier
+                                    .size(12.dp)
+                                    .graphicsLayer {
+                                        rotationZ = rotation
+                                    }
+                            )
+                            Text(
+                                text = stateText,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = stateColor,
+                                maxLines = 1,
+                                softWrap = false
                             )
                         }
                     }
@@ -1379,6 +1481,86 @@ fun TaskCard(
                     modifier = Modifier.size(20.dp)
                 )
             }
+        }
+    }
+}
+
+@Composable
+fun GlobalSyncStatusBar(
+    isNetworkAvailable: Boolean,
+    hasPendingWrites: Boolean,
+    isFirebaseInitialized: Boolean
+) {
+    val bgColor = when {
+        !isFirebaseInitialized -> Color(0xFFF1F5F9) // Slate-100
+        !isNetworkAvailable -> Color(0xFFFEF3C7) // Amber-100
+        hasPendingWrites -> Color(0xFFEEF2FF) // Indigo-50
+        else -> Color(0xFFECFDF5) // Green-50
+    }
+    val contentColor = when {
+        !isFirebaseInitialized -> Color(0xFF475569)
+        !isNetworkAvailable -> Color(0xFFD97706)
+        hasPendingWrites -> StitchIndigo
+        else -> StitchGreen500
+    }
+    val icon = when {
+        !isFirebaseInitialized -> Icons.Default.Info
+        !isNetworkAvailable -> Icons.Default.Info
+        hasPendingWrites -> Icons.Default.Refresh
+        else -> Icons.Default.CheckCircle
+    }
+    val text = when {
+        !isFirebaseInitialized -> "Sandbox Mode (Local Room)"
+        !isNetworkAvailable -> "Offline Mode — Viewing Cached Data"
+        hasPendingWrites -> "Synchronizing pending writes..."
+        else -> "Connected & Synced with Cloud Firestore"
+    }
+
+    val infiniteTransition = rememberInfiniteTransition(label = "SyncRotation")
+    val rotationAngle by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1500, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "Rotation"
+    )
+
+    AnimatedVisibility(
+        visible = true,
+        enter = expandVertically() + fadeIn(),
+        exit = shrinkVertically() + fadeOut()
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 4.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(bgColor)
+                .padding(horizontal = 12.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = text,
+                tint = contentColor,
+                modifier = Modifier
+                    .size(16.dp)
+                    .graphicsLayer {
+                        if (hasPendingWrites && isNetworkAvailable && isFirebaseInitialized) {
+                            rotationZ = rotationAngle
+                        }
+                    }
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = text,
+                color = contentColor,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.SemiBold
+            )
         }
     }
 }
