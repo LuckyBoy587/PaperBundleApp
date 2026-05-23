@@ -16,6 +16,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import java.util.UUID
+import androidx.core.content.edit
 
 // Stores user details and family session info
 data class UserSession(
@@ -24,8 +25,7 @@ data class UserSession(
     val email: String,
     val photoUrl: String,
     val familyId: String? = null,
-    val familyName: String? = null,
-    val familyInviteCode: String? = null
+    val familyName: String? = null
 )
 
 data class FamilyMember(
@@ -38,20 +38,11 @@ data class FamilyMember(
 object FirebaseSyncManager {
     private const val TAG = "PAPER_BUNDLE"
     private const val PREFS_NAME = "PaperBundleFirebasePrefs"
-
     private const val PREDEFINED_FAMILY_ID = "fam_baskaran_home"
-    private const val PREDEFINED_FAMILY_NAME = "Baskaran Home"
-    private const val PREDEFINED_FAMILY_INVITE_CODE = "HOME482"
+    private const val PREDEFINED_FAMILY_NAME = "Baski Home"
 
     var isFirebaseInitialized = false
         private set
-
-    // Emulated multiplayer users when in SANDBOX mode
-    val sandboxUsers = listOf(
-        UserSession("user_mom", "Mom (Amma)", "mom@gmail.com", "https://api.dicebear.com/7.x/adventurer/svg?seed=Mom"),
-        UserSession("user_dad", "Dad (Appa)", "dad@gmail.com", "https://api.dicebear.com/7.x/adventurer/svg?seed=Dad"),
-        UserSession("user_son", "Son (Kowshik)", "kowshik@gmail.com", "https://api.dicebear.com/7.x/adventurer/svg?seed=Son")
-    )
 
     private val _currentUserSession = MutableStateFlow<UserSession?>(null)
     val currentUserSession: MutableStateFlow<UserSession?> get() = _currentUserSession
@@ -73,7 +64,7 @@ object FirebaseSyncManager {
             apiKey.isNotBlank() && !apiKey.contains("YOUR_FIREBASE") &&
                     appId.isNotBlank() && !appId.contains("YOUR_FIREBASE") &&
                     projectId.isNotBlank() && !projectId.contains("YOUR_FIREBASE")
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             false
         }
 
@@ -130,9 +121,8 @@ object FirebaseSyncManager {
             val photoUrl = prefs.getString("photoUrl", "") ?: ""
             val familyId = prefs.getString("familyId", null)
             val familyName = prefs.getString("familyName", null)
-            val inviteCode = prefs.getString("familyInviteCode", null)
 
-            Log.d(TAG, "FirebaseSyncManager: Saved session found: uid=$uid, name=$name, email=$email, familyId=$familyId, familyName=$familyName, inviteCode=$inviteCode")
+            Log.d(TAG, "FirebaseSyncManager: Saved session found: uid=$uid, name=$name, email=$email, familyId=$familyId, familyName=$familyName")
 
             val session = UserSession(
                 uid = uid,
@@ -140,8 +130,7 @@ object FirebaseSyncManager {
                 email = email,
                 photoUrl = photoUrl,
                 familyId = familyId,
-                familyName = familyName,
-                familyInviteCode = inviteCode
+                familyName = familyName
             )
             _currentUserSession.value = session
             _familyMembers.value = listOf(FamilyMember(uid, name, email, photoUrl))
@@ -153,24 +142,27 @@ object FirebaseSyncManager {
     fun saveSession(context: Context, session: UserSession?) {
         _currentUserSession.value = session
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        val edit = prefs.edit()
-        if (session != null) {
-            Log.d(TAG, "FirebaseSyncManager: saveSession() called - Saving session: uid=${session.uid}, name=${session.name}, familyId=${session.familyId}, familyName=${session.familyName}, inviteCode=${session.familyInviteCode}")
-            edit.putString("uid", session.uid)
-            edit.putString("name", session.name)
-            edit.putString("email", session.email)
-            edit.putString("photoUrl", session.photoUrl)
-            edit.putString("familyId", session.familyId)
-            edit.putString("familyName", session.familyName)
-            edit.putString("familyInviteCode", session.familyInviteCode)
-            _familyMembers.value = listOf(FamilyMember(session.uid, session.name, session.email, session.photoUrl))
-        } else {
-            Log.d(TAG, "FirebaseSyncManager: saveSession() called - Clearing session (logout)")
-            edit.clear()
-            _familyMembers.value = emptyList()
-            stopSyncing()
+        prefs.edit {
+            if (session != null) {
+                Log.d(
+                    TAG,
+                    "FirebaseSyncManager: saveSession() called - Saving session: uid=${session.uid}, name=${session.name}, familyId=${session.familyId}, familyName=${session.familyName}"
+                )
+                putString("uid", session.uid)
+                putString("name", session.name)
+                putString("email", session.email)
+                putString("photoUrl", session.photoUrl)
+                putString("familyId", session.familyId)
+                putString("familyName", session.familyName)
+                _familyMembers.value =
+                    listOf(FamilyMember(session.uid, session.name, session.email, session.photoUrl))
+            } else {
+                Log.d(TAG, "FirebaseSyncManager: saveSession() called - Clearing session (logout)")
+                clear()
+                _familyMembers.value = emptyList()
+                stopSyncing()
+            }
         }
-        edit.apply()
     }
 
     // Google Login - support real firebase flow & high-fidelity sandbox
@@ -197,16 +189,14 @@ object FirebaseSyncManager {
                             email = fbUser?.email ?: profileChoiceEmail,
                             photoUrl = fbUser?.photoUrl?.toString() ?: profileChoicePhoto,
                             familyId = PREDEFINED_FAMILY_ID,
-                            familyName = PREDEFINED_FAMILY_NAME,
-                            familyInviteCode = PREDEFINED_FAMILY_INVITE_CODE
+                            familyName = PREDEFINED_FAMILY_NAME
                         )
                         
                         // Predefine the family and add user to it in Firestore
                         val db = FirebaseFirestore.getInstance()
                         val familyRef = db.collection("families").document(PREDEFINED_FAMILY_ID)
                         val familyData = hashMapOf(
-                            "familyName" to PREDEFINED_FAMILY_NAME,
-                            "inviteCode" to PREDEFINED_FAMILY_INVITE_CODE
+                            "familyName" to PREDEFINED_FAMILY_NAME
                         )
                         val memberData = hashMapOf(
                             "uid" to session.uid,
@@ -250,127 +240,7 @@ object FirebaseSyncManager {
         }
     }
 
-    // Create a new Family workspace
-    fun createFamily(
-        context: Context,
-        familyName: String,
-        onComplete: (Boolean, String?) -> Unit
-    ) {
-        val current = _currentUserSession.value ?: return onComplete(false, "No active user session").also {
-            Log.e(TAG, "FirebaseSyncManager: createFamily() failed: No active user session")
-        }
-        val randomDigits = (100..999).random()
-        val suffix = familyName.take(4).uppercase().replace(" ", "")
-        val code = "$suffix$randomDigits"
-        val newFamilyId = "fam_${UUID.randomUUID().toString().take(8)}"
-        Log.d(TAG, "FirebaseSyncManager: createFamily() called: familyName='$familyName', generatedCode=$code, generatedFamId=$newFamilyId, isFirebaseInitialized=$isFirebaseInitialized")
 
-        if (isFirebaseInitialized) {
-            val db = FirebaseFirestore.getInstance()
-            val familyData = hashMapOf(
-                "familyName" to familyName,
-                "createdBy" to current.uid,
-                "inviteCode" to code
-            )
-            db.collection("families").document(newFamilyId)
-                .set(familyData)
-                .addOnSuccessListener {
-                    Log.d(TAG, "FirebaseSyncManager: Firestore createFamily successfully created registry doc for $newFamilyId. Registering member...")
-                    // Register current user as a family member
-                    val memberData = hashMapOf(
-                        "uid" to current.uid,
-                        "name" to current.name,
-                        "email" to current.email,
-                        "photoUrl" to current.photoUrl
-                    )
-                    db.collection("families").document(newFamilyId).collection("members").document(current.uid)
-                        .set(memberData)
-                        .addOnSuccessListener {
-                            Log.d(TAG, "FirebaseSyncManager: Firestore member registration successful, saving session...")
-                            val updatedSession = current.copy(
-                                familyId = newFamilyId,
-                                familyName = familyName,
-                                familyInviteCode = code
-                            )
-                            saveSession(context, updatedSession)
-                            onComplete(true, null)
-                        }
-                        .addOnFailureListener { e ->
-                            Log.e(TAG, "FirebaseSyncManager: Firestore member registration failed: ${e.localizedMessage}", e)
-                            onComplete(false, "Failed to register family member: ${e.localizedMessage}")
-                        }
-                }
-                .addOnFailureListener { e ->
-                    Log.e(TAG, "FirebaseSyncManager: Firestore createFamily registry doc creation failed: ${e.localizedMessage}", e)
-                    onComplete(false, "Failed to create family registry: ${e.localizedMessage}")
-                }
-        } else {
-            Log.e(TAG, "FirebaseSyncManager: createFamily() failed: Firebase not initialized")
-            onComplete(false, "Firebase is not initialized. Cannot create family workspace.")
-        }
-    }
-
-    // Join via Invite Code
-    fun joinFamily(
-        context: Context,
-        inviteCode: String,
-        onComplete: (Boolean, String?) -> Unit
-    ) {
-        val current = _currentUserSession.value ?: return onComplete(false, "No active user session").also {
-            Log.e(TAG, "FirebaseSyncManager: joinFamily() failed: No active user session")
-        }
-        val cleanCode = inviteCode.trim().uppercase()
-        Log.d(TAG, "FirebaseSyncManager: joinFamily() called: inviteCode='$inviteCode', cleanCode='$cleanCode', isFirebaseInitialized=$isFirebaseInitialized")
-
-        if (isFirebaseInitialized) {
-            val db = FirebaseFirestore.getInstance()
-            db.collection("families")
-                .whereEqualTo("inviteCode", cleanCode)
-                .get()
-                .addOnSuccessListener { query ->
-                    if (query == null || query.isEmpty) {
-                        Log.w(TAG, "FirebaseSyncManager: Firestore joinFamily: no family found with invite code='$cleanCode'")
-                        onComplete(false, "Invalid Invite Code! Please verify with your family member.")
-                    } else {
-                        val doc = query.documents.first()
-                        val famId = doc.id
-                        val famName = doc.getString("familyName") ?: "Family Board"
-                        Log.d(TAG, "FirebaseSyncManager: Firestore joinFamily: found family with ID=$famId, name='$famName'. Registering member...")
-                        
-                        // Register member in Firestore
-                        val memberData = hashMapOf(
-                            "uid" to current.uid,
-                            "name" to current.name,
-                            "email" to current.email,
-                            "photoUrl" to current.photoUrl
-                        )
-                        db.collection("families").document(famId).collection("members").document(current.uid)
-                            .set(memberData)
-                            .addOnSuccessListener {
-                                Log.d(TAG, "FirebaseSyncManager: Firestore joinFamily member registration successful, saving session...")
-                                val updatedSession = current.copy(
-                                    familyId = famId,
-                                    familyName = famName,
-                                    familyInviteCode = cleanCode
-                                )
-                                saveSession(context, updatedSession)
-                                onComplete(true, null)
-                            }
-                            .addOnFailureListener { e ->
-                                Log.e(TAG, "FirebaseSyncManager: Firestore joinFamily member registration failed: ${e.localizedMessage}", e)
-                                onComplete(false, "Failed to register profile info: ${e.localizedMessage}")
-                            }
-                    }
-                }
-                .addOnFailureListener { e ->
-                    Log.e(TAG, "FirebaseSyncManager: Firestore joinFamily verification query failed: ${e.localizedMessage}", e)
-                    onComplete(false, "Error verifying invite code: ${e.localizedMessage}")
-                }
-        } else {
-            Log.e(TAG, "FirebaseSyncManager: joinFamily() failed: Firebase not initialized")
-            onComplete(false, "Firebase is not initialized. Cannot join family workspace.")
-        }
-    }
 
     // Realtime synchronizer and observer of tasks
     fun startSyncing(taskDao: TaskDao) {

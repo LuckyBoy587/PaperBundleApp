@@ -3,6 +3,7 @@ package com.example.ui
 import android.app.Application
 import android.content.Context
 import android.util.Log
+import androidx.core.content.edit
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
@@ -11,7 +12,6 @@ import com.example.data.Task
 import com.example.data.TaskRepository
 import com.example.util.FirebaseSyncManager
 import com.example.util.Language
-import com.example.util.UserSession
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -67,7 +67,7 @@ class TaskViewModel(
                         val defaultProfile = session.uid
                         Log.d(TAG, "TaskViewModel: Defaulting active profile to user UID: $defaultProfile")
                         curProfile.value = defaultProfile
-                        prefs.edit().putString("Profile", defaultProfile).apply()
+                        prefs.edit { putString("Profile", defaultProfile) }
                     }
                 } else {
                     FirebaseSyncManager.stopSyncing()
@@ -83,7 +83,7 @@ class TaskViewModel(
                     val defaultProfile = members.first().uid
                     Log.d(TAG, "TaskViewModel: Current profile not in family members list. Defaulting profile to: $defaultProfile")
                     curProfile.value = defaultProfile
-                    prefs.edit().putString("Profile", defaultProfile).apply()
+                    prefs.edit { putString("Profile", defaultProfile) }
                 }
             }
         }
@@ -111,13 +111,13 @@ class TaskViewModel(
     fun setLanguage(language: Language) {
         Log.d(TAG, "TaskViewModel: setLanguage() called: language=$language")
         curLanguage.value = language
-        prefs.edit().putString("Language", language.name).apply()
+        prefs.edit { putString("Language", language.name) }
     }
 
     fun setProfile(profile: String) {
         Log.d(TAG, "TaskViewModel: setProfile() called: profile=$profile")
         curProfile.value = profile
-        prefs.edit().putString("Profile", profile).apply()
+        prefs.edit { putString("Profile", profile) }
     }
 
     // Authentication Actions
@@ -151,47 +151,7 @@ class TaskViewModel(
         }
     }
 
-    fun handleCreateFamily(context: Context, familyName: String, onSuccess: () -> Unit) {
-        if (familyName.isBlank()) {
-            Log.w(TAG, "TaskViewModel: handleCreateFamily() rejected: familyName is blank")
-            return
-        }
-        Log.d(TAG, "TaskViewModel: handleCreateFamily() called: familyName='$familyName'")
-        viewModelScope.launch {
-            authLoading.value = true
-            authError.value = null
-            FirebaseSyncManager.createFamily(context, familyName.trim()) { success, errorMsg ->
-                Log.d(TAG, "TaskViewModel: handleCreateFamily callback: success=$success, errorMsg=$errorMsg")
-                authLoading.value = false
-                if (success) {
-                    onSuccess()
-                } else {
-                    authError.value = errorMsg
-                }
-            }
-        }
-    }
 
-    fun handleJoinFamily(context: Context, inviteCode: String, onSuccess: () -> Unit) {
-        if (inviteCode.isBlank()) {
-            Log.w(TAG, "TaskViewModel: handleJoinFamily() rejected: inviteCode is blank")
-            return
-        }
-        Log.d(TAG, "TaskViewModel: handleJoinFamily() called: inviteCode='$inviteCode'")
-        viewModelScope.launch {
-            authLoading.value = true
-            authError.value = null
-            FirebaseSyncManager.joinFamily(context, inviteCode.trim()) { success, errorMsg ->
-                Log.d(TAG, "TaskViewModel: handleJoinFamily callback: success=$success, errorMsg=$errorMsg")
-                authLoading.value = false
-                if (success) {
-                    onSuccess()
-                } else {
-                    authError.value = errorMsg
-                }
-            }
-        }
-    }
 
     fun logout(context: Context) {
         Log.d(TAG, "TaskViewModel: logout() called")
