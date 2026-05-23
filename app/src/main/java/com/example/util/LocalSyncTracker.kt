@@ -19,7 +19,7 @@ object LocalSyncTracker {
      */
     fun updateSyncState(taskId: String, state: SyncState) {
         synchronized(this) {
-            _syncStates.value = _syncStates.value + (taskId to state)
+            _syncStates.value += (taskId to state)
         }
     }
 
@@ -28,7 +28,7 @@ object LocalSyncTracker {
      */
     fun clearSyncState(taskId: String) {
         synchronized(this) {
-            _syncStates.value = _syncStates.value - taskId
+            _syncStates.value -= taskId
         }
     }
 
