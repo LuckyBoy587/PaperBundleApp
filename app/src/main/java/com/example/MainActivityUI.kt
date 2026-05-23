@@ -264,6 +264,7 @@ fun SharedFamilyBoardScreen(viewModel: TaskViewModel, session: UserSession) {
     var isCompletedSheetOpen by remember { mutableStateOf(false) }
     var selectedTab by remember { mutableStateOf(0) }
     var showSettingsMenu by remember { mutableStateOf(false) }
+    val collapsedCompletedMembers = remember { mutableStateMapOf<String, Boolean>() }
 
     // Speech-to-Text Setup
     var voiceTextForInput by remember { mutableStateOf("") }
@@ -315,8 +316,26 @@ fun SharedFamilyBoardScreen(viewModel: TaskViewModel, session: UserSession) {
         }
     }
 
-    val filteredTasks = remember(activeTasks) {
-        activeTasks.filter { !it.isCompleted }
+    val activeTasksList = remember(allTasks) {
+        allTasks.filter { !it.isCompleted }
+    }
+
+    val sortedMembers = remember(familyMembers, session) {
+        val list = familyMembers.toMutableList()
+        val currentUserIndex = list.indexOfFirst { it.uid == session.uid }
+        if (currentUserIndex != -1) {
+            val currentUser = list.removeAt(currentUserIndex)
+            list.add(0, currentUser)
+        } else {
+            // Fallback: If current user isn't in familyMembers, add them at the front
+            list.add(0, com.example.util.FamilyMember(
+                uid = session.uid,
+                name = session.name,
+                email = session.email,
+                photoUrl = session.photoUrl
+            ))
+        }
+        list
     }
 
     val activeMember = familyMembers.find { it.uid == curProfile }
@@ -402,50 +421,32 @@ fun SharedFamilyBoardScreen(viewModel: TaskViewModel, session: UserSession) {
                             .weight(1f)
                             .fillMaxWidth()
                     ) {
-                        if (filteredTasks.isEmpty()) {
-                            val activeMemberName = (activeMember?.name ?: "Member").substringBefore(" ")
-                            val emptyMsg = String.format(LocalizedStrings.get("no_pending_member", language), activeMemberName)
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 20.dp, vertical = 12.dp)
-                                    .shadow(
-                                        elevation = 3.dp,
-                                        shape = RoundedCornerShape(24.dp),
-                                        ambientColor = Color.Black.copy(alpha = 0.05f),
-                                        spotColor = Color.Black.copy(alpha = 0.07f)
-                                    )
-                                    .clip(RoundedCornerShape(24.dp))
-                                    .background(Color.White)
-                                    .padding(24.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = emptyMsg,
-                                    color = StitchSlate500,
-                                    fontSize = 14.sp,
-                                    textAlign = TextAlign.Center
-                                )
-                            }
-                        } else {
-                            LazyColumn(
-                                modifier = Modifier.fillMaxSize(),
-                                verticalArrangement = Arrangement.spacedBy(8.dp),
-                                contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp)
-                            ) {
-                                items(filteredTasks, key = { it.id }) { task ->
-                                    TaskCard(
-                                        task = task,
-                                        onToggle = { viewModel.toggleTaskComplete(task) },
-                                        onDelete = { taskToDelete = task }
-                                    )
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize(),
+                            verticalArrangement = Arrangement.spacedBy(4.dp),
+                            contentPadding = PaddingValues(top = 8.dp, bottom = 12.dp)
+                        ) {
+                            items(sortedMembers, key = { it.uid }) { member ->
+                                val memberTasks = remember(activeTasksList, member.uid) {
+                                    activeTasksList.filter { it.profileOwner == member.uid }
                                 }
+                                MemberTodoBox(
+                                    member = member,
+                                    isCurrentUser = member.uid == session.uid,
+                                    tasks = memberTasks,
+                                    onToggleTask = { task -> viewModel.toggleTaskComplete(task) },
+                                    onDeleteTask = { task -> taskToDelete = task },
+                                    onAddTaskClick = {
+                                        viewModel.setProfile(member.uid)
+                                        isAddingTask = true
+                                    }
+                                )
                             }
                         }
                     }
 
                     // C. Completed Tasks Pull-up Bar
-                    val completedTasksCount = remember(activeTasks) { activeTasks.count { it.isCompleted } }
+                    val completedTasksCount = remember(allTasks) { allTasks.count { it.isCompleted } }
                     if (completedTasksCount > 0) {
                         Spacer(modifier = Modifier.height(8.dp))
                         Box(
@@ -676,34 +677,7 @@ fun SharedFamilyBoardScreen(viewModel: TaskViewModel, session: UserSession) {
             }
         }
 
-        // Floating Action Button (Only shown on Tasks tab)
-        if (selectedTab == 0) {
-            Box(
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(bottom = 88.dp, end = 24.dp)
-                    .size(64.dp)
-                    .shadow(
-                        elevation = 12.dp,
-                        shape = CircleShape,
-                        ambientColor = StitchIndigo.copy(alpha = 0.4f),
-                        spotColor = StitchIndigo.copy(alpha = 0.6f)
-                    )
-                    .background(Brush.linearGradient(colors = listOf(StitchPurple, StitchIndigo)), CircleShape)
-                    .clickable {
-                        voiceTextForInput = ""
-                        isAddingTask = true
-                    },
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Add,
-                    contentDescription = "Add Task",
-                    tint = Color.White,
-                    modifier = Modifier.size(32.dp)
-                )
-            }
-        }
+
 
         // Floating Language/Status Switcher Badge removed
 
@@ -1084,7 +1058,7 @@ fun SharedFamilyBoardScreen(viewModel: TaskViewModel, session: UserSession) {
                         )
 
                         // Completed list
-                        val completedTasksList = remember(activeTasks) { activeTasks.filter { it.isCompleted } }
+                        val completedTasksList = remember(allTasks) { allTasks.filter { it.isCompleted } }
                         if (completedTasksList.isEmpty()) {
                             Box(
                                 modifier = Modifier
@@ -1103,14 +1077,25 @@ fun SharedFamilyBoardScreen(viewModel: TaskViewModel, session: UserSession) {
                                 modifier = Modifier
                                     .weight(1f)
                                     .fillMaxSize(),
-                                verticalArrangement = Arrangement.spacedBy(8.dp),
-                                contentPadding = PaddingValues(horizontal = 4.dp, vertical = 12.dp)
+                                verticalArrangement = Arrangement.spacedBy(4.dp),
+                                contentPadding = PaddingValues(top = 8.dp, bottom = 12.dp)
                             ) {
-                                items(completedTasksList, key = { it.id }) { task ->
-                                    TaskCard(
-                                        task = task,
-                                        onToggle = { viewModel.toggleTaskComplete(task) },
-                                        onDelete = { taskToDelete = task }
+                                items(sortedMembers, key = { it.uid }) { member ->
+                                    val memberCompletedTasks = remember(completedTasksList, member.uid) {
+                                        completedTasksList.filter { it.profileOwner == member.uid }
+                                    }
+                                    val isExpanded = collapsedCompletedMembers[member.uid] ?: true
+                                    MemberTodoBox(
+                                        member = member,
+                                        isCurrentUser = member.uid == session.uid,
+                                        tasks = memberCompletedTasks,
+                                        showAddButton = false,
+                                        isExpanded = isExpanded,
+                                        onToggleExpand = {
+                                            collapsedCompletedMembers[member.uid] = !isExpanded
+                                        },
+                                        onToggleTask = { task -> viewModel.toggleTaskComplete(task) },
+                                        onDeleteTask = { task -> taskToDelete = task }
                                     )
                                 }
                             }
@@ -1166,6 +1151,402 @@ fun SharedFamilyBoardScreen(viewModel: TaskViewModel, session: UserSession) {
             },
             onDismiss = { showProfileSelector = false }
         )
+    }
+}
+
+// Curated list of vibrant modern accent colors for family members
+val MemberColors = listOf(
+    Color(0xFF6366F1), // Indigo
+    Color(0xFFEC4899), // Pink/Rose
+    Color(0xFFF59E0B), // Amber
+    Color(0xFF10B981), // Emerald
+    Color(0xFF06B6D4), // Cyan
+    Color(0xFF8B5CF6), // Violet
+    Color(0xFFEF4444)  // Red
+)
+
+fun getMemberColor(uid: String): Color {
+    val index = Math.abs(uid.hashCode()) % MemberColors.size
+    return MemberColors[index]
+}
+
+@Composable
+fun MemberTaskRow(
+    task: Task,
+    onToggle: () -> Unit,
+    onDelete: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 10.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Row(
+            modifier = Modifier.weight(1f),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            // Checkbox
+            Box(
+                modifier = Modifier
+                    .size(22.dp)
+                    .clip(CircleShape)
+                    .border(2.dp, if (task.isCompleted) StitchIndigo else Color(0xFFC7D2FE), CircleShape)
+                    .background(if (task.isCompleted) StitchIndigo else Color.Transparent, CircleShape)
+                    .clickable { onToggle() },
+                contentAlignment = Alignment.Center
+            ) {
+                if (task.isCompleted) {
+                    Icon(
+                        imageVector = Icons.Default.Check,
+                        contentDescription = "Completed",
+                        tint = Color.White,
+                        modifier = Modifier.size(12.dp)
+                    )
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .size(6.dp)
+                            .background(Color.White, CircleShape)
+                    )
+                }
+            }
+
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(
+                    text = task.title,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = if (task.isCompleted) StitchSlate500 else StitchSlate800,
+                    style = TextStyle(
+                        textDecoration = if (task.isCompleted) TextDecoration.LineThrough else TextDecoration.None
+                    ),
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+                
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    // Creator badge (only show if created by someone else to avoid noise)
+                    if (task.createdByUid.isNotEmpty() && task.createdByUid != task.profileOwner) {
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(100.dp))
+                                .background(Color(0xFFF1F5F9))
+                                .padding(horizontal = 6.dp, vertical = 1.dp)
+                        ) {
+                            Text(
+                                text = "By ${task.createdByName.substringBefore(" ")}",
+                                color = StitchSlate500,
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1
+                            )
+                        }
+                        
+                        Box(
+                            modifier = Modifier
+                                .width(1.dp)
+                                .height(8.dp)
+                                .background(Color(0xFFE2E8F0))
+                        )
+                    }
+
+                    // Sync State Badge
+                    val stateColor = when (task.syncState) {
+                        SyncState.SYNCED -> StitchGreen500
+                        SyncState.CACHED -> Color(0xFF64748B)
+                        SyncState.PENDING_WRITE -> Color(0xFFD97706)
+                        SyncState.SYNCING -> StitchIndigo
+                        SyncState.ERROR -> Color.Red
+                    }
+                    val stateIcon = when (task.syncState) {
+                        SyncState.SYNCED -> Icons.Default.CheckCircle
+                        SyncState.CACHED -> Icons.Default.Info
+                        SyncState.PENDING_WRITE -> Icons.Default.Refresh
+                        SyncState.SYNCING -> Icons.Default.Refresh
+                        SyncState.ERROR -> Icons.Default.Warning
+                    }
+                    val stateText = when (task.syncState) {
+                        SyncState.SYNCED -> "Synced"
+                        SyncState.CACHED -> "Cached"
+                        SyncState.PENDING_WRITE -> "Pending"
+                        SyncState.SYNCING -> "Syncing"
+                        SyncState.ERROR -> "Error"
+                    }
+
+                    val rotation = if (task.syncState == SyncState.SYNCING) {
+                        val infiniteTransition = rememberInfiniteTransition(label = "SyncingRotRow")
+                        val angle by infiniteTransition.animateFloat(
+                            initialValue = 0f,
+                            targetValue = 360f,
+                            animationSpec = infiniteRepeatable(
+                                animation = tween(1200, easing = LinearEasing),
+                                repeatMode = RepeatMode.Restart
+                            ),
+                            label = "RotAngleRow"
+                        )
+                        angle
+                    } else 0f
+
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(2.dp)
+                    ) {
+                        Icon(
+                            imageVector = stateIcon,
+                            contentDescription = stateText,
+                            tint = stateColor,
+                            modifier = Modifier
+                                .size(10.dp)
+                                .graphicsLayer { rotationZ = rotation }
+                        )
+                        Text(
+                            text = stateText,
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = stateColor,
+                            maxLines = 1
+                        )
+                    }
+                }
+            }
+        }
+
+        // Trash Button
+        IconButton(
+            onClick = onDelete,
+            modifier = Modifier.size(28.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Default.Delete,
+                contentDescription = "Delete",
+                tint = Color(0xFFCBD5E1),
+                modifier = Modifier.size(16.dp)
+            )
+        }
+    }
+}
+
+@Composable
+fun MemberTodoBox(
+    member: com.example.util.FamilyMember,
+    isCurrentUser: Boolean,
+    tasks: List<Task>,
+    showAddButton: Boolean = true,
+    isExpanded: Boolean = true,
+    onToggleExpand: (() -> Unit)? = null,
+    onToggleTask: (Task) -> Unit,
+    onDeleteTask: (Task) -> Unit,
+    onAddTaskClick: () -> Unit = {}
+) {
+    val accentColor = remember(member.uid) { getMemberColor(member.uid) }
+    
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp, vertical = 6.dp)
+            .shadow(
+                elevation = 6.dp,
+                shape = RoundedCornerShape(24.dp),
+                ambientColor = Color.Black.copy(alpha = 0.05f),
+                spotColor = Color.Black.copy(alpha = 0.07f)
+            )
+            .clip(RoundedCornerShape(24.dp))
+            .background(Color.White)
+            .border(BorderStroke(1.dp, StitchBorder), RoundedCornerShape(24.dp))
+    ) {
+        // Unique member accent vertical bar indicator on the left
+        Box(
+            modifier = Modifier
+                .width(5.dp)
+                .fillMaxHeight()
+                .align(Alignment.CenterStart)
+                .background(accentColor)
+        )
+
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 20.dp, end = 16.dp, top = 16.dp, bottom = 16.dp)
+        ) {
+            // Box Header - no longer clickable itself
+            val headerModifier = Modifier.fillMaxWidth()
+
+            Row(
+                modifier = headerModifier,
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    modifier = Modifier.weight(1f)
+                ) {
+                    // Small Avatar with custom accent
+                    Box(
+                        modifier = Modifier
+                            .size(32.dp)
+                            .background(accentColor.copy(alpha = 0.12f), CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = member.name.take(1).uppercase(),
+                            color = accentColor,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 14.sp
+                        )
+                    }
+
+                    Column {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = member.name.substringBefore(" "),
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = StitchSlate800
+                            )
+                            if (isCurrentUser) {
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(6.dp))
+                                        .background(accentColor.copy(alpha = 0.1f))
+                                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                                ) {
+                                    Text(
+                                        text = "You",
+                                        color = accentColor,
+                                        fontSize = 9.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    // Badge count
+                    if (tasks.isNotEmpty()) {
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(100.dp))
+                                .background(accentColor.copy(alpha = 0.1f))
+                                .padding(horizontal = 8.dp, vertical = 2.dp)
+                        ) {
+                            val badgeText = if (showAddButton) "${tasks.size} pending" else "${tasks.size} done"
+                            Text(
+                                text = badgeText,
+                                color = accentColor,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+
+                    // Add Task "+" icon specifically for this member
+                    if (showAddButton) {
+                        Box(
+                            modifier = Modifier
+                                .size(28.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFFF1F5F9))
+                                .clickable { onAddTaskClick() },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Add,
+                                contentDescription = "Add Task for ${member.name}",
+                                tint = StitchSlate500,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                    }
+
+                    // Expand/Collapse Chevron
+                    if (onToggleExpand != null) {
+                        val rotationAngle by animateFloatAsState(
+                            targetValue = if (isExpanded) 180f else 0f,
+                            label = "chevronRotation"
+                        )
+                        Box(
+                            modifier = Modifier
+                                .size(28.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFFF1F5F9))
+                                .clickable { onToggleExpand() },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "▼",
+                                fontSize = 10.sp,
+                                color = StitchSlate500,
+                                modifier = Modifier.graphicsLayer {
+                                    rotationZ = rotationAngle
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Only show content if expanded
+            if (isExpanded) {
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Task List or Empty State
+                if (tasks.isEmpty()) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 12.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Text(text = "✨", fontSize = 14.sp)
+                            Text(
+                                text = "All caught up!",
+                                color = StitchSlate500,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    }
+                } else {
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(0.dp)
+                    ) {
+                        tasks.forEachIndexed { index, task ->
+                            MemberTaskRow(
+                                task = task,
+                                onToggle = { onToggleTask(task) },
+                                onDelete = { onDeleteTask(task) }
+                            )
+                            if (index < tasks.lastIndex) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(1.dp)
+                                        .background(StitchBorder)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
