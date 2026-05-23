@@ -3,6 +3,14 @@ package com.example.data
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 
+enum class SyncState {
+    CACHED,
+    SYNCING,
+    PENDING_WRITE,
+    SYNCED,
+    ERROR
+}
+
 @Entity(tableName = "tasks")
 data class Task(
     @PrimaryKey val id: String,
@@ -18,5 +26,5 @@ data class Task(
     val completedByUid: String? = null,
     val completedByName: String? = null,
     val familyId: String = "",
-    val firebaseSynced: Boolean = false
+    val syncState: SyncState = SyncState.SYNCED
 )
