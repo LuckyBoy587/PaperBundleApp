@@ -249,29 +249,50 @@ fun SharedFamilyBoardScreen(viewModel: TaskViewModel, session: UserSession) {
     // Speech-to-Text Setup
     var voiceTextForInput by remember { mutableStateOf("") }
     var speechTriggerId by remember { mutableStateOf(0) }
+    var isListening by remember { mutableStateOf(false) }
 
     val speechRecognizerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
     ) { result ->
+        isListening = false
         if (result.resultCode == Activity.RESULT_OK) {
             val results = result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
             val spokenText = results?.firstOrNull() ?: ""
             if (spokenText.isNotBlank()) {
                 voiceTextForInput = spokenText
                 speechTriggerId++
+            } else {
+                Toast.makeText(
+                    context,
+                    LocalizedStrings.get("voice_speech_not_understood", language),
+                    Toast.LENGTH_SHORT
+                ).show()
             }
         }
     }
 
     val startSpeechRecognition = {
+        val locale = if (language == Language.TA) "ta-IN" else "en-US"
         val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
             putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-            putExtra(RecognizerIntent.EXTRA_LANGUAGE, if (language == Language.TA) "ta-IN" else "en-US")
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE, locale)
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, locale)
+            putExtra(RecognizerIntent.EXTRA_ONLY_RETURN_LANGUAGE_PREFERENCE, true)
+            putExtra(
+                RecognizerIntent.EXTRA_PROMPT,
+                LocalizedStrings.get("enter_task_hint", language)
+            )
         }
         try {
+            isListening = true
             speechRecognizerLauncher.launch(intent)
         } catch (e: Exception) {
-            Toast.makeText(context, "Speech not supported", Toast.LENGTH_SHORT).show()
+            isListening = false
+            Toast.makeText(
+                context,
+                LocalizedStrings.get("voice_not_supported", language),
+                Toast.LENGTH_SHORT
+            ).show()
         }
     }
 
@@ -1078,11 +1099,16 @@ fun SharedFamilyBoardScreen(viewModel: TaskViewModel, session: UserSession) {
             profile = curProfile,
             voiceText = voiceTextForInput,
             speechTriggerId = speechTriggerId,
+            isListening = isListening,
             onVoiceClick = startSpeechRecognition,
-            onDismiss = { isAddingTask = false },
+            onDismiss = {
+                isAddingTask = false
+                voiceTextForInput = ""
+            },
             onSave = { title ->
                 viewModel.addTask(title)
                 isAddingTask = false
+                voiceTextForInput = ""
             }
         )
     }
@@ -1569,6 +1595,7 @@ fun AddTaskDialog(
     profile: String,
     voiceText: String,
     speechTriggerId: Int,
+    isListening: Boolean = false,
     onVoiceClick: () -> Unit,
     onDismiss: () -> Unit,
     onSave: (String) -> Unit
@@ -1587,20 +1614,16 @@ fun AddTaskDialog(
     }
 
     val infiniteTransition = rememberInfiniteTransition(label = "pulse")
-    val pulseScale by infiniteTransition.animateFloat(
-        initialValue = 1.0f,
-        targetValue = 1.4f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(1200, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "pulseScale"
-    )
+
+    // Idle: subtle indigo pulse. Listening: vivid red pulse.
+    val micColor = if (isListening) StitchRed500 else StitchIndigo
+    val micBg = if (isListening) Color(0xFFFFEBEB) else Color(0xFFDFE7F9)
+
     val pulseAlpha by infiniteTransition.animateFloat(
-        initialValue = 0.4f,
+        initialValue = if (isListening) 0.5f else 0.3f,
         targetValue = 0.0f,
         animationSpec = infiniteRepeatable(
-            animation = tween(1200, easing = LinearEasing),
+            animation = tween(if (isListening) 700 else 1400, easing = LinearEasing),
             repeatMode = RepeatMode.Restart
         ),
         label = "pulseAlpha"
@@ -1614,15 +1637,15 @@ fun AddTaskDialog(
                 .shadow(elevation = 24.dp, shape = RoundedCornerShape(28.dp))
                 .background(Color.White, RoundedCornerShape(28.dp))
                 .border(2.dp, Color(0xFFD4D7E8), RoundedCornerShape(28.dp))
-                .padding(24.dp)
+                .padding(20.dp)
         ) {
             Column(
                 modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Text(
                     text = LocalizedStrings.get("add_task", language),
-                    fontSize = 20.sp,
+                    fontSize = 18.sp,
                     fontWeight = FontWeight.Bold,
                     color = StitchSlate800
                 )
@@ -1630,81 +1653,108 @@ fun AddTaskDialog(
                 OutlinedTextField(
                     value = textState,
                     onValueChange = { textState = it },
-                    placeholder = { Text(text = LocalizedStrings.get("enter_task_hint", language), fontSize = 14.sp) },
+                    placeholder = { Text(text = LocalizedStrings.get("enter_task_hint", language), fontSize = 13.sp) },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(110.dp)
+                        .height(90.dp)
                         .focusRequester(focusRequester),
-                    shape = RoundedCornerShape(16.dp),
+                    shape = RoundedCornerShape(14.dp),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = StitchIndigo,
                         unfocusedBorderColor = Color(0xFFE2E8F0)
                     )
                 )
 
+                // Mic button + hint label
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    // Speech recognition button
                     Box(
                         modifier = Modifier
-                            .size(48.dp)
+                            .size(40.dp)
                             .clip(CircleShape)
-                            .background(Color(0xFFDFE7F9))
+                            .background(micBg)
                             .clickable { onVoiceClick() },
                         contentAlignment = Alignment.Center
                     ) {
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()
-                                .background(StitchIndigo.copy(alpha = pulseAlpha), CircleShape)
-                                .border(1.dp, StitchIndigo, CircleShape)
+                                .background(micColor.copy(alpha = pulseAlpha), CircleShape)
+                                .border(1.dp, micColor, CircleShape)
                         )
-                        // Simple Mic Icon
                         Canvas(modifier = Modifier.size(16.dp)) {
                             val w = size.width
                             val h = size.height
                             drawRoundRect(
-                                color = StitchIndigo,
-                                topLeft = Offset(w * 0.35f, h * 0.15f),
-                                size = Size(w * 0.3f, h * 0.5f),
-                                cornerRadius = CornerRadius(3.dp.toPx(), 3.dp.toPx())
+                                color = micColor,
+                                topLeft = Offset(w * 0.35f, h * 0.05f),
+                                size = Size(w * 0.3f, h * 0.52f),
+                                cornerRadius = CornerRadius(4.dp.toPx(), 4.dp.toPx())
                             )
                             drawArc(
-                                color = StitchIndigo,
+                                color = micColor,
                                 startAngle = 0f,
                                 sweepAngle = 180f,
                                 useCenter = false,
-                                topLeft = Offset(w * 0.2f, h * 0.35f),
-                                size = Size(w * 0.6f, h * 0.4f),
+                                topLeft = Offset(w * 0.18f, h * 0.32f),
+                                size = Size(w * 0.64f, h * 0.42f),
                                 style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round)
                             )
                             drawLine(
-                                color = StitchIndigo,
-                                start = Offset(w * 0.5f, h * 0.75f),
-                                end = Offset(w * 0.5f, h * 0.95f),
+                                color = micColor,
+                                start = Offset(w * 0.5f, h * 0.74f),
+                                end = Offset(w * 0.5f, h * 0.96f),
                                 strokeWidth = 2.dp.toPx()
+                            )
+                            drawLine(
+                                color = micColor,
+                                start = Offset(w * 0.32f, h * 0.96f),
+                                end = Offset(w * 0.68f, h * 0.96f),
+                                strokeWidth = 2.dp.toPx(),
+                                cap = StrokeCap.Round
                             )
                         }
                     }
 
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        TextButton(onClick = onDismiss) {
-                            Text(text = LocalizedStrings.get("cancel", language), color = StitchSlate500)
-                        }
-                        Button(
-                            onClick = {
-                                if (textState.isNotBlank()) {
-                                    onSave(textState)
-                                }
-                            },
-                            colors = ButtonDefaults.buttonColors(containerColor = StitchIndigo),
-                            shape = RoundedCornerShape(12.dp)
-                        ) {
-                            Text(text = LocalizedStrings.get("save", language), color = Color.White)
-                        }
+                    Text(
+                        text = if (isListening)
+                            if (language == Language.TA) "கேட்கிறேன்…" else "Listening…"
+                        else
+                            LocalizedStrings.get("voice_hint", language),
+                        fontSize = 12.sp,
+                        color = if (isListening) StitchRed500 else StitchSlate500,
+                        fontWeight = if (isListening) FontWeight.SemiBold else FontWeight.Normal,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+
+                // Action buttons — right-aligned
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    TextButton(
+                        onClick = onDismiss,
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                    ) {
+                        Text(text = LocalizedStrings.get("cancel", language), color = StitchSlate500, fontSize = 14.sp)
+                    }
+                    Spacer(Modifier.width(6.dp))
+                    Button(
+                        onClick = {
+                            if (textState.isNotBlank()) {
+                                onSave(textState)
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = StitchIndigo),
+                        shape = RoundedCornerShape(12.dp),
+                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
+                    ) {
+                        Text(text = LocalizedStrings.get("save", language), color = Color.White, fontSize = 14.sp)
                     }
                 }
             }
