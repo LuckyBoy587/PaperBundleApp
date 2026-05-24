@@ -320,6 +320,81 @@ object FirebaseSyncManager {
                         }
                     }
                 }
+
+            activeListener = db.collection("families").document(familyId).collection("tasks")
+                .addSnapshotListener { snapshot, error ->
+                    if (error != null) {
+                        Log.e(TAG, "FirebaseSyncManager: Sync observation of tasks failed", error)
+                        return@addSnapshotListener
+                    }
+                    if (snapshot != null) {
+                        Log.d(TAG, "FirebaseSyncManager: Tasks snapshot listener triggered: docCount=${snapshot.size()}")
+                        ioScope.launch {
+                            try {
+                                val isFromCache = snapshot.metadata.isFromCache
+                                val firestoreTasks = snapshot.documents.mapNotNull { doc ->
+                                    try {
+                                        val title = doc.getString("title") ?: ""
+                                        val isCompleted = doc.getBoolean("completed") ?: false
+                                        val profileOwner = doc.getString("profileOwner") ?: "GENERAL"
+                                        val createdBy = doc.getString("createdBy") ?: "Unknown"
+                                        val completedBy = doc.getString("completedBy")
+                                        val createdAt = doc.getLong("createdAt") ?: System.currentTimeMillis()
+                                        val completedAt = doc.getLong("completedAt")
+                                        
+                                        val hasPendingWrites = doc.metadata.hasPendingWrites()
+                                        
+                                        val syncState = when {
+                                            hasPendingWrites -> {
+                                                if (isNetworkAvailable()) SyncState.SYNCING else SyncState.PENDING_WRITE
+                                            }
+                                            isFromCache -> SyncState.CACHED
+                                            else -> SyncState.SYNCED
+                                        }
+
+                                        Task(
+                                            id = doc.id,
+                                            title = title,
+                                            isCompleted = isCompleted,
+                                            profileOwner = profileOwner,
+                                            createdAt = createdAt,
+                                            completedAt = completedAt,
+                                            createdByUid = doc.getString("createdByUid") ?: "",
+                                            createdByName = createdBy,
+                                            completedByUid = doc.getString("completedByUid"),
+                                            completedByName = completedBy,
+                                            familyId = familyId,
+                                            syncState = syncState
+                                        )
+                                    } catch (e: Exception) {
+                                        Log.e(TAG, "FirebaseSyncManager: Error mapping task doc ${doc.id}", e)
+                                        null
+                                    }
+                                }
+
+                                // 1. Insert/Update all retrieved tasks in Room DB
+                                firestoreTasks.forEach { task ->
+                                    taskDao.insertTask(task)
+                                    Log.d(TAG, "FirebaseSyncManager: Synced task to Room DB: taskId=${task.id}")
+                                }
+
+                                // 2. Delete tasks from local database that are no longer in Firestore and not pending write
+                                val localTasks = taskDao.getTasksByFamily(familyId)
+                                val firestoreIds = firestoreTasks.map { it.id }.toSet()
+                                localTasks.forEach { localTask ->
+                                    if (localTask.id !in firestoreIds) {
+                                        if (localTask.syncState != SyncState.PENDING_WRITE) {
+                                            taskDao.deleteTaskById(localTask.id)
+                                            Log.d(TAG, "FirebaseSyncManager: Deleted stale local task: taskId=${localTask.id}")
+                                        }
+                                    }
+                                }
+                            } catch (e: Exception) {
+                                Log.e(TAG, "FirebaseSyncManager: Error syncing tasks to local DB", e)
+                            }
+                        }
+                    }
+                }
         }
     }
 
