@@ -52,6 +52,9 @@ class TaskViewModel(
     val authLoading = MutableStateFlow(false)
     val authError = MutableStateFlow<String?>(null)
 
+    // Trigger to open the add task dialog (e.g. from Widget + button click intent)
+    val triggerAddTaskDialog = MutableStateFlow(false)
+
     init {
         Log.d(TAG, "TaskViewModel: initialized: curLanguage=${curLanguage.value}, curProfile=${curProfile.value}")
         // Collect user session changes to automatically bind/unbind Firestore listener
@@ -181,6 +184,7 @@ class TaskViewModel(
             )
             repository.insertTask(task)
             Log.d(TAG, "TaskViewModel: addTask: local insert complete for taskId=${task.id}")
+            FirebaseSyncManager.triggerWidgetUpdate()
             
             // Sync to Firebase if a Family board is linked
             if (session?.familyId != null) {
@@ -203,6 +207,7 @@ class TaskViewModel(
             )
             repository.updateTask(updatedTask)
             Log.d(TAG, "TaskViewModel: toggleTaskComplete: local update complete to isCompleted=$isNowCompleted")
+            FirebaseSyncManager.triggerWidgetUpdate()
             
             // Sync status to Firestore
             if (session?.familyId != null) {
@@ -217,6 +222,7 @@ class TaskViewModel(
         viewModelScope.launch {
             repository.deleteTask(id)
             Log.d(TAG, "TaskViewModel: deleteTask: local deletion complete")
+            FirebaseSyncManager.triggerWidgetUpdate()
             
             // Sync deletion to Firestore
             val session = currentUserSession.value
