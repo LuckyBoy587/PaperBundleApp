@@ -11,6 +11,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -78,20 +79,21 @@ import androidx.compose.foundation.gestures.rememberDraggableState
 
 
 
-// Stitch Dashboard Colors
-val StitchBg = Color(0xFFF1F5F9) // Premium Modern Slate-100 app background (for gorgeous contrast with white sheets)
-val StitchBorder = Color(0xFFE2E8F0) // Premium Modern Slate-200 border for ultra-crisp, defined card boundaries
-val StitchIndigo = Color(0xFF6366F1)
-val StitchPurple = Color(0xFFA855F7)
-val StitchSlate800 = Color(0xFF1E293B)
-val StitchSlate500 = Color(0xFF64748B)
-val StitchGray100 = Color(0xFFF1F5F9)
-val StitchRed50 = Color(0xFFFEF2F2)
-val StitchRed500 = Color(0xFFEF4444)
-val StitchGreen50 = Color(0xFFF0FDF4)
-val StitchGreen500 = Color(0xFF22C55E)
-val StitchBlue50 = Color(0xFFEFF6FF)
-val StitchBlue500 = Color(0xFF3B82F6)
+// Stitch Dashboard Colors - Dynamic Material 3 properties for dynamic theme support
+val StitchBg: Color @Composable get() = MaterialTheme.colorScheme.surfaceVariant
+val StitchBorder: Color @Composable get() = MaterialTheme.colorScheme.outline
+val StitchIndigo: Color @Composable get() = MaterialTheme.colorScheme.primary
+val StitchPurple: Color @Composable get() = MaterialTheme.colorScheme.tertiary
+val StitchSlate800: Color @Composable get() = MaterialTheme.colorScheme.onSurface
+val StitchSlate500: Color @Composable get() = MaterialTheme.colorScheme.onSurfaceVariant
+val StitchGray100: Color @Composable get() = MaterialTheme.colorScheme.surfaceVariant
+val StitchRed50: Color @Composable get() = MaterialTheme.colorScheme.errorContainer
+val StitchRed500: Color @Composable get() = MaterialTheme.colorScheme.error
+val StitchGreen50: Color @Composable get() = MaterialTheme.colorScheme.secondaryContainer
+val StitchGreen500: Color @Composable get() = MaterialTheme.colorScheme.secondary
+val StitchBlue50: Color @Composable get() = MaterialTheme.colorScheme.primaryContainer
+val StitchBlue500: Color @Composable get() = MaterialTheme.colorScheme.primary
+
 
 class MainActivityUI(private val viewModel: TaskViewModel) {
     @Composable
@@ -165,7 +167,7 @@ fun GoogleLoginScreen(viewModel: TaskViewModel) {
             modifier = Modifier
                 .fillMaxWidth(0.88f)
                 .clip(RoundedCornerShape(32.dp))
-                .background(Color.White)
+                .background(MaterialTheme.colorScheme.surface)
                 .border(BorderStroke(1.dp, StitchBorder), RoundedCornerShape(32.dp))
                 .padding(32.dp),
             horizontalAlignment = Alignment.CenterHorizontally
@@ -226,7 +228,7 @@ fun GoogleLoginScreen(viewModel: TaskViewModel) {
                         text = LocalizedStrings.get("sign_in_google", language),
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Bold,
-                        color = Color.White
+                        color = MaterialTheme.colorScheme.onPrimary
                     )
                 }
             }
@@ -367,7 +369,7 @@ fun SharedFamilyBoardScreen(viewModel: TaskViewModel, session: UserSession) {
                                 spotColor = Color.Black.copy(alpha = 0.08f)
                             )
                             .clip(RoundedCornerShape(24.dp))
-                            .background(Color.White)
+                            .background(MaterialTheme.colorScheme.surface)
                     ) {
                         MainHeader(
                             initial = initialLetter,
@@ -408,7 +410,7 @@ fun SharedFamilyBoardScreen(viewModel: TaskViewModel, session: UserSession) {
                                 spotColor = Color.Black.copy(alpha = 0.07f)
                             )
                             .clip(RoundedCornerShape(20.dp))
-                            .background(Color.White)
+                            .background(MaterialTheme.colorScheme.surface)
                     ) {
                         TasksSectionHeader()
                     }
@@ -460,7 +462,7 @@ fun SharedFamilyBoardScreen(viewModel: TaskViewModel, session: UserSession) {
                                     spotColor = Color.Black.copy(alpha = 0.07f)
                                 )
                                 .clip(RoundedCornerShape(16.dp))
-                                .background(Color.White)
+                                .background(MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f))
                                 .clickable { isCompletedSheetOpen = true }
                                 .draggable(
                                     orientation = Orientation.Vertical,
@@ -484,7 +486,7 @@ fun SharedFamilyBoardScreen(viewModel: TaskViewModel, session: UserSession) {
                                     Box(
                                         modifier = Modifier
                                             .size(24.dp)
-                                            .background(Color(0xFFECFDF5), CircleShape),
+                                            .background(MaterialTheme.colorScheme.secondaryContainer, CircleShape),
                                         contentAlignment = Alignment.Center
                                     ) {
                                         Icon(
@@ -509,7 +511,7 @@ fun SharedFamilyBoardScreen(viewModel: TaskViewModel, session: UserSession) {
                                     Box(
                                         modifier = Modifier
                                             .clip(RoundedCornerShape(100.dp))
-                                            .background(Color(0xFFEEF2FF))
+                                            .background(MaterialTheme.colorScheme.primaryContainer)
                                             .padding(horizontal = 8.dp, vertical = 2.dp)
                                     ) {
                                         Text(
@@ -547,7 +549,7 @@ fun SharedFamilyBoardScreen(viewModel: TaskViewModel, session: UserSession) {
                                     spotColor = Color.Black.copy(alpha = 0.07f)
                                 )
                                 .clip(RoundedCornerShape(20.dp))
-                                .background(Color.White)
+                                .background(MaterialTheme.colorScheme.surface)
                                 .padding(18.dp)
                         ) {
                             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -598,7 +600,7 @@ fun SharedFamilyBoardScreen(viewModel: TaskViewModel, session: UserSession) {
                                                     spotColor = if (isSelected) StitchIndigo.copy(alpha = 0.15f) else Color.Black.copy(alpha = 0.05f)
                                                 )
                                                 .clip(RoundedCornerShape(20.dp))
-                                                .background(if (isSelected) Color(0xFFF5F7FF) else Color.White)
+                                                .background(if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface)
                                                 .border(
                                                     width = if (isSelected) 1.5.dp else 1.dp,
                                                     color = if (isSelected) StitchIndigo else StitchBorder,
@@ -631,7 +633,7 @@ fun SharedFamilyBoardScreen(viewModel: TaskViewModel, session: UserSession) {
                                                     ) {
                                                         Text(
                                                             text = member.name.take(1).uppercase(),
-                                                            color = if (isSelected) Color.White else StitchIndigo,
+                                                            color = if (isSelected) MaterialTheme.colorScheme.onPrimary else StitchIndigo,
                                                             fontWeight = FontWeight.Bold,
                                                             fontSize = 18.sp
                                                         )
@@ -694,7 +696,7 @@ fun SharedFamilyBoardScreen(viewModel: TaskViewModel, session: UserSession) {
                     ambientColor = Color.Black.copy(alpha = 0.08f),
                     spotColor = Color.Black.copy(alpha = 0.08f)
                 )
-                .background(Color.White, RoundedCornerShape(28.dp))
+                .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(28.dp))
                 .padding(horizontal = 8.dp, vertical = 8.dp),
             contentAlignment = Alignment.Center
         ) {
@@ -827,7 +829,7 @@ fun SharedFamilyBoardScreen(viewModel: TaskViewModel, session: UserSession) {
                         ambientColor = Color.Black.copy(alpha = 0.12f),
                         spotColor = Color.Black.copy(alpha = 0.16f)
                     )
-                    .background(Color.White, RoundedCornerShape(20.dp))
+                    .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(20.dp))
                     .border(1.dp, StitchBorder, RoundedCornerShape(20.dp))
                     .padding(horizontal = 16.dp, vertical = 12.dp)
             ) {
@@ -870,7 +872,7 @@ fun SharedFamilyBoardScreen(viewModel: TaskViewModel, session: UserSession) {
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(12.dp))
-                            .background(Color(0xFFFFF1F1))
+                            .background(MaterialTheme.colorScheme.errorContainer)
                             .clickable {
                                 showSettingsMenu = false
                                 viewModel.logout(context)
@@ -970,7 +972,7 @@ fun SharedFamilyBoardScreen(viewModel: TaskViewModel, session: UserSession) {
                             spotColor = Color.Black.copy(alpha = 0.1f)
                         )
                         .background(
-                            color = Color.White,
+                            color = MaterialTheme.colorScheme.surfaceVariant,
                             shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
                         )
                         .clickable(
@@ -1021,7 +1023,7 @@ fun SharedFamilyBoardScreen(viewModel: TaskViewModel, session: UserSession) {
                                     modifier = Modifier
                                         .width(48.dp)
                                         .height(5.dp)
-                                        .background(Color(0xFFCBD5E1), RoundedCornerShape(100.dp))
+                                        .background(MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(100.dp))
                                 )
                             }
 
@@ -1155,7 +1157,7 @@ fun SharedFamilyBoardScreen(viewModel: TaskViewModel, session: UserSession) {
 }
 
 // Curated list of vibrant modern accent colors for family members
-val MemberColors = listOf(
+val MemberColorsLight = listOf(
     Color(0xFF6366F1), // Indigo
     Color(0xFFEC4899), // Pink/Rose
     Color(0xFFF59E0B), // Amber
@@ -1165,9 +1167,20 @@ val MemberColors = listOf(
     Color(0xFFEF4444)  // Red
 )
 
-fun getMemberColor(uid: String): Color {
-    val index = Math.abs(uid.hashCode()) % MemberColors.size
-    return MemberColors[index]
+val MemberColorsDark = listOf(
+    Color(0xFF818CF8), // Luminous Indigo
+    Color(0xFFF472B6), // Luminous Pink/Rose
+    Color(0xFFFBBF24), // Luminous Amber
+    Color(0xFF34D399), // Luminous Emerald
+    Color(0xFF22D3EE), // Luminous Cyan
+    Color(0xFFA78BFA), // Luminous Violet
+    Color(0xFFF87171)  // Luminous Red
+)
+
+fun getMemberColor(uid: String, isDark: Boolean): Color {
+    val colors = if (isDark) MemberColorsDark else MemberColorsLight
+    val index = Math.abs(uid.hashCode()) % colors.size
+    return colors[index]
 }
 
 @Composable
@@ -1193,7 +1206,7 @@ fun MemberTaskRow(
                 modifier = Modifier
                     .size(22.dp)
                     .clip(CircleShape)
-                    .border(2.dp, if (task.isCompleted) StitchIndigo else Color(0xFFC7D2FE), CircleShape)
+                    .border(2.dp, if (task.isCompleted) StitchIndigo else MaterialTheme.colorScheme.primary.copy(alpha = 0.4f), CircleShape)
                     .background(if (task.isCompleted) StitchIndigo else Color.Transparent, CircleShape)
                     .clickable { onToggle() },
                 contentAlignment = Alignment.Center
@@ -1202,14 +1215,14 @@ fun MemberTaskRow(
                     Icon(
                         imageVector = Icons.Default.Check,
                         contentDescription = "Completed",
-                        tint = Color.White,
+                        tint = MaterialTheme.colorScheme.onPrimary,
                         modifier = Modifier.size(12.dp)
                     )
                 } else {
                     Box(
                         modifier = Modifier
                             .size(6.dp)
-                            .background(Color.White, CircleShape)
+                            .background(MaterialTheme.colorScheme.surface, CircleShape)
                     )
                 }
             }
@@ -1236,7 +1249,7 @@ fun MemberTaskRow(
                         Box(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(100.dp))
-                                .background(Color(0xFFF1F5F9))
+                                .background(MaterialTheme.colorScheme.surfaceVariant)
                                 .padding(horizontal = 6.dp, vertical = 1.dp)
                         ) {
                             Text(
@@ -1252,17 +1265,17 @@ fun MemberTaskRow(
                             modifier = Modifier
                                 .width(1.dp)
                                 .height(8.dp)
-                                .background(Color(0xFFE2E8F0))
+                                .background(MaterialTheme.colorScheme.outlineVariant)
                         )
                     }
 
                     // Sync State Badge
                     val stateColor = when (task.syncState) {
                         SyncState.SYNCED -> StitchGreen500
-                        SyncState.CACHED -> Color(0xFF64748B)
-                        SyncState.PENDING_WRITE -> Color(0xFFD97706)
+                        SyncState.CACHED -> StitchSlate500
+                        SyncState.PENDING_WRITE -> if (isSystemInDarkTheme()) Color(0xFFFBBF24) else Color(0xFFD97706)
                         SyncState.SYNCING -> StitchIndigo
-                        SyncState.ERROR -> Color.Red
+                        SyncState.ERROR -> MaterialTheme.colorScheme.error
                     }
                     val stateIcon = when (task.syncState) {
                         SyncState.SYNCED -> Icons.Default.CheckCircle
@@ -1325,7 +1338,7 @@ fun MemberTaskRow(
             Icon(
                 imageVector = Icons.Default.Delete,
                 contentDescription = "Delete",
-                tint = Color(0xFFCBD5E1),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
                 modifier = Modifier.size(16.dp)
             )
         }
@@ -1344,7 +1357,8 @@ fun MemberTodoBox(
     onDeleteTask: (Task) -> Unit,
     onAddTaskClick: () -> Unit = {}
 ) {
-    val accentColor = remember(member.uid) { getMemberColor(member.uid) }
+    val isDark = isSystemInDarkTheme()
+    val accentColor = remember(member.uid, isDark) { getMemberColor(member.uid, isDark) }
     
     Box(
         modifier = Modifier
@@ -1357,7 +1371,7 @@ fun MemberTodoBox(
                 spotColor = Color.Black.copy(alpha = 0.07f)
             )
             .clip(RoundedCornerShape(24.dp))
-            .background(Color.White)
+            .background(MaterialTheme.colorScheme.surface)
             .border(BorderStroke(1.dp, StitchBorder), RoundedCornerShape(24.dp))
     ) {
         // Unique member accent vertical bar indicator on the left
@@ -1458,7 +1472,7 @@ fun MemberTodoBox(
                             modifier = Modifier
                                 .size(28.dp)
                                 .clip(CircleShape)
-                                .background(Color(0xFFF1F5F9))
+                                .background(MaterialTheme.colorScheme.surfaceVariant)
                                 .clickable { onAddTaskClick() },
                             contentAlignment = Alignment.Center
                         ) {
@@ -1481,7 +1495,7 @@ fun MemberTodoBox(
                             modifier = Modifier
                                 .size(28.dp)
                                 .clip(CircleShape)
-                                .background(Color(0xFFF1F5F9))
+                                .background(MaterialTheme.colorScheme.surfaceVariant)
                                 .clickable { onToggleExpand() },
                             contentAlignment = Alignment.Center
                         ) {
@@ -1580,7 +1594,7 @@ fun MainHeader(
                 ) {
                     Text(
                         text = initial,
-                        color = Color.White,
+                        color = MaterialTheme.colorScheme.onPrimary,
                         fontWeight = FontWeight.Bold,
                         fontSize = 20.sp
                     )
@@ -1611,7 +1625,7 @@ fun MainHeader(
                     modifier = Modifier
                         .size(48.dp)
                         .clip(CircleShape)
-                        .background(Color.White)
+                        .background(MaterialTheme.colorScheme.surface)
                         .border(1.dp, StitchBorder, CircleShape)
                         .clickable { /* No-op badge click */ },
                     contentAlignment = Alignment.Center
@@ -1624,7 +1638,7 @@ fun MainHeader(
                             .padding(top = 12.dp, end = 12.dp)
                             .size(8.dp)
                             .background(Color.Red, CircleShape)
-                            .border(1.5.dp, Color.White, CircleShape)
+                            .border(1.5.dp, MaterialTheme.colorScheme.surface, CircleShape)
                     )
                 }
 
@@ -1633,7 +1647,7 @@ fun MainHeader(
                     modifier = Modifier
                         .size(48.dp)
                         .clip(CircleShape)
-                        .background(Color.White)
+                        .background(MaterialTheme.colorScheme.surface)
                         .border(1.dp, StitchBorder, CircleShape)
                         .clickable { onLanguageClick() },
                     contentAlignment = Alignment.Center
@@ -1679,7 +1693,7 @@ fun TaskCard(
                 ambientColor = Color.Black.copy(alpha = 0.06f),
                 spotColor = Color.Black.copy(alpha = 0.08f)
             )
-            .background(Color.White, RoundedCornerShape(24.dp))
+            .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(24.dp))
             .padding(20.dp)
     ) {
         Row(
@@ -1697,7 +1711,7 @@ fun TaskCard(
                     modifier = Modifier
                         .size(24.dp)
                         .clip(CircleShape)
-                        .border(2.dp, if (task.isCompleted) StitchIndigo else Color(0xFFC7D2FE), CircleShape)
+                        .border(2.dp, if (task.isCompleted) StitchIndigo else MaterialTheme.colorScheme.primary.copy(alpha = 0.4f), CircleShape)
                         .background(if (task.isCompleted) StitchIndigo else Color.Transparent, CircleShape)
                         .clickable { onToggle() },
                     contentAlignment = Alignment.Center
@@ -1706,7 +1720,7 @@ fun TaskCard(
                         Icon(
                             imageVector = Icons.Default.Check,
                             contentDescription = "Completed",
-                            tint = Color.White,
+                            tint = MaterialTheme.colorScheme.onPrimary,
                             modifier = Modifier.size(14.dp)
                         )
                     } else {
@@ -1714,7 +1728,7 @@ fun TaskCard(
                         Box(
                             modifier = Modifier
                                 .size(8.dp)
-                                .background(Color.White, CircleShape)
+                                .background(MaterialTheme.colorScheme.surface, CircleShape)
                         )
                     }
                 }
@@ -1745,7 +1759,7 @@ fun TaskCard(
                         ) {
                             Text(
                                 text = task.createdByName,
-                                color = Color.White,
+                                color = MaterialTheme.colorScheme.onPrimary,
                                 fontSize = 10.sp,
                                 fontWeight = FontWeight.Bold,
                                 maxLines = 1,
@@ -1758,7 +1772,7 @@ fun TaskCard(
                             modifier = Modifier
                                 .width(1.dp)
                                 .height(10.dp)
-                                .background(Color(0xFFE2E8F0))
+                                .background(MaterialTheme.colorScheme.outlineVariant)
                         )
 
                         // Due Date Icon + Text
@@ -1781,16 +1795,16 @@ fun TaskCard(
                             modifier = Modifier
                                 .width(1.dp)
                                 .height(10.dp)
-                                .background(Color(0xFFE2E8F0))
+                                .background(MaterialTheme.colorScheme.outlineVariant)
                         )
 
                         // Sync State Badge
                         val stateColor = when (task.syncState) {
                             SyncState.SYNCED -> StitchGreen500
-                            SyncState.CACHED -> Color(0xFF64748B) // Slate-500
-                            SyncState.PENDING_WRITE -> Color(0xFFD97706) // Amber-600
+                            SyncState.CACHED -> StitchSlate500
+                            SyncState.PENDING_WRITE -> if (isSystemInDarkTheme()) Color(0xFFFBBF24) else Color(0xFFD97706)
                             SyncState.SYNCING -> StitchIndigo
-                            SyncState.ERROR -> Color.Red
+                            SyncState.ERROR -> MaterialTheme.colorScheme.error
                         }
                         val stateIcon = when (task.syncState) {
                             SyncState.SYNCED -> Icons.Default.CheckCircle
@@ -1858,7 +1872,7 @@ fun TaskCard(
                 Icon(
                     imageVector = Icons.Default.Delete,
                     contentDescription = "Delete",
-                    tint = Color(0xFFCBD5E1),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
                     modifier = Modifier.size(20.dp)
                 )
             }
@@ -1872,15 +1886,16 @@ fun GlobalSyncStatusBar(
     hasPendingWrites: Boolean,
     isFirebaseInitialized: Boolean
 ) {
+    val isDark = isSystemInDarkTheme()
     val bgColor = when {
-        !isFirebaseInitialized -> Color(0xFFF1F5F9) // Slate-100
-        !isNetworkAvailable -> Color(0xFFFEF3C7) // Amber-100
-        hasPendingWrites -> Color(0xFFEEF2FF) // Indigo-50
-        else -> Color(0xFFECFDF5) // Green-50
+        !isFirebaseInitialized -> MaterialTheme.colorScheme.surfaceVariant
+        !isNetworkAvailable -> if (isDark) Color(0xFF3E2D00) else Color(0xFFFEF3C7)
+        hasPendingWrites -> MaterialTheme.colorScheme.primaryContainer
+        else -> MaterialTheme.colorScheme.secondaryContainer
     }
     val contentColor = when {
-        !isFirebaseInitialized -> Color(0xFF475569)
-        !isNetworkAvailable -> Color(0xFFD97706)
+        !isFirebaseInitialized -> MaterialTheme.colorScheme.onSurfaceVariant
+        !isNetworkAvailable -> if (isDark) Color(0xFFFBBF24) else Color(0xFFD97706)
         hasPendingWrites -> StitchIndigo
         else -> StitchGreen500
     }
@@ -2180,7 +2195,7 @@ fun AddTaskDialog(
 
     // Idle: subtle indigo pulse. Listening: vivid red pulse.
     val micColor = if (isListening) StitchRed500 else StitchIndigo
-    val micBg = if (isListening) Color(0xFFFFEBEB) else Color(0xFFDFE7F9)
+    val micBg = if (isListening) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.primaryContainer
 
     val pulseAlpha by infiniteTransition.animateFloat(
         initialValue = if (isListening) 0.5f else 0.3f,
@@ -2198,8 +2213,8 @@ fun AddTaskDialog(
                 .fillMaxWidth()
                 .padding(vertical = 8.dp)
                 .shadow(elevation = 24.dp, shape = RoundedCornerShape(28.dp))
-                .background(Color.White, RoundedCornerShape(28.dp))
-                .border(2.dp, Color(0xFFD4D7E8), RoundedCornerShape(28.dp))
+                .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(28.dp))
+                .border(2.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(28.dp))
                 .padding(20.dp)
         ) {
             Column(
@@ -2224,7 +2239,7 @@ fun AddTaskDialog(
                     shape = RoundedCornerShape(14.dp),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = StitchIndigo,
-                        unfocusedBorderColor = Color(0xFFE2E8F0)
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant
                     )
                 )
 
@@ -2317,7 +2332,7 @@ fun AddTaskDialog(
                         shape = RoundedCornerShape(12.dp),
                         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
                     ) {
-                        Text(text = LocalizedStrings.get("save", language), color = Color.White, fontSize = 14.sp)
+                        Text(text = LocalizedStrings.get("save", language), color = MaterialTheme.colorScheme.onPrimary, fontSize = 14.sp)
                     }
                 }
             }
@@ -2334,7 +2349,7 @@ fun DeleteConfirmDialog(
     Dialog(onDismissRequest = onDismiss) {
         Card(
             shape = RoundedCornerShape(24.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.White),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(16.dp)
@@ -2376,7 +2391,7 @@ fun DeleteConfirmDialog(
                         modifier = Modifier.weight(1f),
                         shape = RoundedCornerShape(12.dp),
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = StitchSlate500),
-                        border = BorderStroke(1.dp, Color(0xFFE2E8F0))
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
                     ) {
                         Text(text = LocalizedStrings.get("delete_no", language))
                     }
@@ -2386,7 +2401,7 @@ fun DeleteConfirmDialog(
                         shape = RoundedCornerShape(12.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = StitchRed500)
                     ) {
-                        Text(text = LocalizedStrings.get("delete_yes", language), color = Color.White)
+                        Text(text = LocalizedStrings.get("delete_yes", language), color = MaterialTheme.colorScheme.onError)
                     }
                 }
             }
@@ -2405,7 +2420,7 @@ fun FamilySelectorDialog(
     Dialog(onDismissRequest = onDismiss) {
         Card(
             shape = RoundedCornerShape(28.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.White),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(16.dp)
@@ -2436,10 +2451,10 @@ fun FamilySelectorDialog(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .clip(RoundedCornerShape(16.dp))
-                                    .background(if (isSelected) Color(0xFFEEF2FF) else Color.Transparent)
+                                    .background(if (isSelected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent)
                                     .border(
                                         1.dp,
-                                        if (isSelected) StitchIndigo else Color(0xFFF1F5F9),
+                                        if (isSelected) StitchIndigo else MaterialTheme.colorScheme.surfaceVariant,
                                         RoundedCornerShape(16.dp)
                                     )
                                     .clickable { onProfileSelect(member.uid) }

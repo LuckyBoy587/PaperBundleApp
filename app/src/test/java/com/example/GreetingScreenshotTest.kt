@@ -32,7 +32,6 @@ class GreetingScreenshotTest {
         Box(modifier = Modifier.padding(16.dp)) {
           TaskCard(
             task = Task(id = "1", title = "பால் வாங்கவும் (Buy Milk)", isCompleted = false, profileOwner = "AMMA"),
-            language = Language.TA,
             onToggle = {},
             onDelete = {}
           )
