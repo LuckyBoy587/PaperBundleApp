@@ -14,6 +14,7 @@ import androidx.glance.Image
 import androidx.glance.ImageProvider
 import androidx.glance.action.actionParametersOf
 import androidx.glance.action.clickable
+import androidx.glance.action.ActionParameters
 import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.action.actionRunCallback
 import androidx.glance.action.actionStartActivity
@@ -47,6 +48,10 @@ import com.example.util.FirebaseSyncManager
 
 class TodoWidget : GlanceAppWidget() {
 
+    companion object {
+        val openAddTaskKey = ActionParameters.Key<Boolean>("open_add_task")
+    }
+
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         val database = TaskDatabase.getDatabase(context)
         val repository = TaskRepository(database.taskDao)
@@ -64,7 +69,6 @@ class TodoWidget : GlanceAppWidget() {
                 val pendingTasks = tasks.filter { !it.isCompleted }
 
                 TodoWidgetContent(
-                    profile = profile,
                     pendingTasks = pendingTasks
                 )
             }
@@ -73,21 +77,9 @@ class TodoWidget : GlanceAppWidget() {
 
     @Composable
     private fun TodoWidgetContent(
-        profile: String,
         pendingTasks: List<Task>
     ) {
         val countText = if (pendingTasks.size == 1) "1 pending" else "${pendingTasks.size} pending"
-        
-        // Resolve profile name beautifully instead of showing ugly UIDs
-        val session = FirebaseSyncManager.currentUserSession.value
-        val profileName = if (profile.isEmpty() || profile == "GENERAL") {
-            "All Members"
-        } else if (profile == session?.uid) {
-            session.name
-        } else {
-            val member = FirebaseSyncManager.familyMembers.value.find { it.uid == profile }
-            member?.name ?: "Family Tasks"
-        }
 
         Box(
             modifier = GlanceModifier
@@ -97,26 +89,20 @@ class TodoWidget : GlanceAppWidget() {
                 .padding(12.dp)
         ) {
             Column(modifier = GlanceModifier.fillMaxSize()) {
-                // Header Bar
+                // Header Bar - Clickable to open app homepage
                 Row(
-                    modifier = GlanceModifier.fillMaxWidth(),
+                    modifier = GlanceModifier
+                        .fillMaxWidth()
+                        .clickable(actionStartActivity<MainActivity>()),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column(modifier = GlanceModifier.defaultWeight()) {
                         Text(
-                            text = "Paper Bundle",
+                            text = "Bundle",
                             style = TextStyle(
                                 color = GlanceTheme.colors.onSurface,
                                 fontSize = 16.sp,
                                 fontWeight = FontWeight.Bold
-                            )
-                        )
-                        Text(
-                            text = profileName,
-                            style = TextStyle(
-                                color = GlanceTheme.colors.onSurfaceVariant,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Medium
                             )
                         )
                     }
@@ -139,16 +125,45 @@ class TodoWidget : GlanceAppWidget() {
                         )
                     }
 
-                    // Plus Button to open app and add task
+                    // Plus Button inside a circular themed background
                     Spacer(modifier = GlanceModifier.width(8.dp))
-                    Image(
-                        provider = ImageProvider(R.drawable.ic_add_task),
-                        contentDescription = "Add Task",
+                    Box(
                         modifier = GlanceModifier
-                            .size(24.dp)
-                            .clickable(actionStartActivity<MainActivity>()),
-                        colorFilter = ColorFilter.tint(GlanceTheme.colors.primary)
-                    )
+                            .size(32.dp)
+                            .background(GlanceTheme.colors.primaryContainer)
+                            .cornerRadius(16.dp)
+                            .clickable(
+                                actionStartActivity<MainActivity>(
+                                    actionParametersOf(openAddTaskKey to true)
+                                )
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Image(
+                            provider = ImageProvider(R.drawable.ic_add_task),
+                            contentDescription = "Add Task",
+                            modifier = GlanceModifier.size(18.dp),
+                            colorFilter = ColorFilter.tint(GlanceTheme.colors.onPrimaryContainer)
+                        )
+                    }
+
+                    // Refresh Button inside a circular themed background
+                    Spacer(modifier = GlanceModifier.width(8.dp))
+                    Box(
+                        modifier = GlanceModifier
+                            .size(32.dp)
+                            .background(GlanceTheme.colors.primaryContainer)
+                            .cornerRadius(16.dp)
+                            .clickable(actionRunCallback<RefreshTasksAction>()),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Image(
+                            provider = ImageProvider(R.drawable.ic_refresh),
+                            contentDescription = "Refresh Tasks",
+                            modifier = GlanceModifier.size(18.dp),
+                            colorFilter = ColorFilter.tint(GlanceTheme.colors.onPrimaryContainer)
+                        )
+                    }
                 }
 
                 Spacer(modifier = GlanceModifier.height(8.dp))
@@ -218,7 +233,7 @@ class TodoWidget : GlanceAppWidget() {
             Row(
                 modifier = GlanceModifier
                     .fillMaxWidth()
-                    .padding(vertical = 6.dp),
+                    .padding(vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 // Task Text
@@ -231,17 +246,6 @@ class TodoWidget : GlanceAppWidget() {
                             fontWeight = FontWeight.Medium
                         )
                     )
-                    // If task has a creator, show a small subtitle
-                    if (task.createdByName.isNotBlank() && task.createdByName != "Local User") {
-                        Text(
-                            text = "Added by ${task.createdByName}",
-                            style = TextStyle(
-                                color = GlanceTheme.colors.onSurfaceVariant,
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Normal
-                            )
-                        )
-                    }
                 }
 
                 Spacer(modifier = GlanceModifier.width(8.dp))
@@ -265,7 +269,7 @@ class TodoWidget : GlanceAppWidget() {
             Box(
                 modifier = GlanceModifier
                     .fillMaxWidth()
-                    .height(0.5.dp)
+                    .height(1.dp)
                     .background(GlanceTheme.colors.outline)
             ) {}
         }

@@ -22,6 +22,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import java.util.UUID
 import androidx.core.content.edit
+import androidx.glance.appwidget.updateAll
 
 // Stores user details and family session info
 data class UserSession(
@@ -60,6 +61,19 @@ object FirebaseSyncManager {
     private var activeListener: ListenerRegistration? = null
     private var memberListener: ListenerRegistration? = null
     private val ioScope = CoroutineScope(Dispatchers.IO)
+
+    fun triggerWidgetUpdate() {
+        appContext?.let { ctx ->
+            ioScope.launch {
+                try {
+                    com.example.widget.TodoWidget().updateAll(ctx)
+                    Log.d(TAG, "FirebaseSyncManager: Widget refresh successfully triggered programmatically.")
+                } catch (e: Exception) {
+                    Log.e(TAG, "FirebaseSyncManager: Error triggering widget update", e)
+                }
+            }
+        }
+    }
 
     // Check if Firebase is configured in BuildConfig
     private val isConfigValid: Boolean
@@ -389,6 +403,7 @@ object FirebaseSyncManager {
                                         }
                                     }
                                 }
+                                triggerWidgetUpdate()
                             } catch (e: Exception) {
                                 Log.e(TAG, "FirebaseSyncManager: Error syncing tasks to local DB", e)
                             }

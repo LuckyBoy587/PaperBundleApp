@@ -260,7 +260,17 @@ fun SharedFamilyBoardScreen(viewModel: TaskViewModel, session: UserSession) {
     val hasPendingWrites = remember(activeTasks) {
         activeTasks.any { it.syncState == SyncState.PENDING_WRITE || it.syncState == SyncState.SYNCING }
     }
-    val familyMembers by viewModel.familyMembers.collectAsState()    var isAddingTask by remember { mutableStateOf(false) }
+    val familyMembers by viewModel.familyMembers.collectAsState()
+    val triggerAddTask by viewModel.triggerAddTaskDialog.collectAsState()
+    var isAddingTask by remember { mutableStateOf(false) }
+
+    LaunchedEffect(triggerAddTask) {
+        if (triggerAddTask) {
+            isAddingTask = true
+            viewModel.triggerAddTaskDialog.value = false
+        }
+    }
+
     var taskToDelete by remember { mutableStateOf<Task?>(null) }
     var showProfileSelector by remember { mutableStateOf(false) }
     var isCompletedSheetOpen by remember { mutableStateOf(false) }
