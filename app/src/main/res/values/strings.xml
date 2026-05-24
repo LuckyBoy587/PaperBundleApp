@@ -1,3 +1,5 @@
 <resources>
     <string name="app_name">PaperBundle</string>
+    <string name="widget_name">Paper Bundle Tasks</string>
+    <string name="widget_description">Quick access to your pending tasks directly on your home screen.</string>
 </resources>
