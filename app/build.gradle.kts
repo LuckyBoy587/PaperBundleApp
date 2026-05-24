@@ -127,4 +127,9 @@ dependencies {
 
   implementation(platform("com.google.firebase:firebase-bom:34.13.0"))
   implementation("com.google.firebase:firebase-analytics")
+
+  // Jetpack Glance Widget support
+  implementation(libs.androidx.glance)
+  implementation(libs.androidx.glance.appwidget)
+  implementation(libs.androidx.glance.material3)
 }

@@ -19,3 +19,5 @@ debug.keystore.base64
 .idea
 ./app/google-services.json2
 Screenshots/*
+my-upload-key.jks
+my-upload-key.jks.base64
