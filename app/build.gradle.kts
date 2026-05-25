@@ -8,6 +8,16 @@ plugins {
   id("com.google.gms.google-services")
 }
 
+fun getGitVersionName(): String {
+  return try {
+    providers.exec {
+      commandLine("git", "describe", "--tags", "--always")
+    }.standardOutput.asText.get().trim().removePrefix("v").removePrefix(".")
+  } catch (e: Exception) {
+    "1.0.4" // Fallback version
+  }
+}
+
 android {
   namespace = "com.example"
   compileSdk { version = release(36) { minorApiLevel = 1 } }
@@ -17,7 +27,7 @@ android {
     minSdk = 24
     targetSdk = 36
     versionCode = 1
-    versionName = "1.0.4"
+    versionName = getGitVersionName()
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
