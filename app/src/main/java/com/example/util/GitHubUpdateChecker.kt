@@ -84,6 +84,15 @@ object GitHubUpdateChecker {
                     isUpdateAvailable = hasUpdate,
                     releaseUrl = htmlUrl
                 )
+            } else if (connection.responseCode == HttpURLConnection.HTTP_NOT_FOUND) {
+                Log.d(TAG, "checkForUpdate: HTTP 404 returned (no release found). Treating as no update available.")
+                UpdateResult.Success(
+                    latestVersion = currentVersionName,
+                    downloadUrl = "",
+                    releaseNotes = "No updates available.",
+                    isUpdateAvailable = false,
+                    releaseUrl = ""
+                )
             } else {
                 UpdateResult.Error(Exception("Failed to fetch updates. HTTP response code: ${connection.responseCode}"))
             }

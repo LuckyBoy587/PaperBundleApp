@@ -13,4 +13,24 @@ class ExampleUnitTest {
   fun addition_isCorrect() {
     assertEquals(4, 2 + 2)
   }
+
+  @Test
+  fun testVersionComparison() {
+    val checker = com.example.util.GitHubUpdateChecker
+    
+    // Newer versions
+    assertTrue(checker.isNewerVersion("1.0.0", "1.0.1"))
+    assertTrue(checker.isNewerVersion("v1.0.0", "1.0.1"))
+    assertTrue(checker.isNewerVersion("1.0.0", "v1.0.1"))
+    assertTrue(checker.isNewerVersion("1.0", "1.0.1"))
+    assertTrue(checker.isNewerVersion("v1.0.3", "v1.1"))
+    assertTrue(checker.isNewerVersion("1.0.0", "2.0.0"))
+
+    // Older or equal versions
+    assertFalse(checker.isNewerVersion("1.0.1", "1.0.1"))
+    assertFalse(checker.isNewerVersion("v1.0.2", "1.0.2"))
+    assertFalse(checker.isNewerVersion("1.0.2", "v1.0.2"))
+    assertFalse(checker.isNewerVersion("1.0.3", "1.0.2"))
+    assertFalse(checker.isNewerVersion("2.0.0", "1.0.0"))
+  }
 }

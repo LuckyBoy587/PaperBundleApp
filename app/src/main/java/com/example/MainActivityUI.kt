@@ -63,7 +63,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.example.data.Task
+import com.example.data.UpdateUiState
 import com.example.ui.TaskViewModel
+import com.example.ui.UpdateViewModel
 import com.example.util.Language
 import com.example.util.LocalizedStrings
 import com.example.util.UserSession
@@ -95,15 +97,18 @@ val StitchBlue50: Color @Composable get() = MaterialTheme.colorScheme.primaryCon
 val StitchBlue500: Color @Composable get() = MaterialTheme.colorScheme.primary
 
 
-class MainActivityUI(private val viewModel: TaskViewModel) {
+class MainActivityUI(
+    private val viewModel: TaskViewModel,
+    private val updateViewModel: UpdateViewModel
+) {
     @Composable
     fun Render() {
-        MainScreen(viewModel = viewModel)
+        MainScreen(viewModel = viewModel, updateViewModel = updateViewModel)
     }
 }
 
 @Composable
-fun MainScreen(viewModel: TaskViewModel) {
+fun MainScreen(viewModel: TaskViewModel, updateViewModel: UpdateViewModel) {
     val userSession by viewModel.currentUserSession.collectAsState()
 
     LaunchedEffect(userSession) {
@@ -115,7 +120,7 @@ fun MainScreen(viewModel: TaskViewModel) {
             GoogleLoginScreen(viewModel)
         }
         else -> {
-            SharedFamilyBoardScreen(viewModel = viewModel, session = session)
+            SharedFamilyBoardScreen(viewModel = viewModel, updateViewModel = updateViewModel, session = session)
         }
     }
 }
@@ -242,7 +247,7 @@ fun GoogleLoginScreen(viewModel: TaskViewModel) {
 }
 
 @Composable
-fun SharedFamilyBoardScreen(viewModel: TaskViewModel, session: UserSession) {
+fun SharedFamilyBoardScreen(viewModel: TaskViewModel, updateViewModel: UpdateViewModel, session: UserSession) {
     val context = LocalContext.current
     val language by viewModel.curLanguage.collectAsState()
     val curProfile by viewModel.curProfile.collectAsState()
@@ -875,7 +880,59 @@ fun SharedFamilyBoardScreen(viewModel: TaskViewModel, session: UserSession) {
                             .background(StitchBorder)
                     )
 
-                    Spacer(modifier = Modifier.height(4.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    // Check for Updates Button
+                    val updateState by updateViewModel.uiState.collectAsState()
+                    val isChecking = updateState is UpdateUiState.Checking
+
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(StitchIndigo.copy(alpha = 0.08f))
+                            .clickable(enabled = !isChecking) {
+                                updateViewModel.checkForUpdates()
+                            }
+                            .padding(horizontal = 16.dp, vertical = 12.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(28.dp)
+                                    .background(StitchIndigo.copy(alpha = 0.15f), CircleShape),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                if (isChecking) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(14.dp),
+                                        strokeWidth = 2.dp,
+                                        color = StitchIndigo
+                                    )
+                                } else {
+                                    Text(text = "⟳", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = StitchIndigo)
+                                }
+                            }
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "Check for Updates",
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = StitchSlate800
+                                )
+                                Text(
+                                    text = "Download the latest version from GitHub",
+                                    fontSize = 10.sp,
+                                    color = StitchSlate500
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
 
                     // Logout Button
                     Box(
@@ -1163,6 +1220,235 @@ fun SharedFamilyBoardScreen(viewModel: TaskViewModel, session: UserSession) {
             },
             onDismiss = { showProfileSelector = false }
         )
+    }
+
+    // --- Update Checker Feature Dialogs and Overlays ---
+    val updateState by updateViewModel.uiState.collectAsState()
+
+    // 1. Update Available Dialog
+    if (updateState is UpdateUiState.UpdateAvailable) {
+        val state = updateState as UpdateUiState.UpdateAvailable
+        AlertDialog(
+            onDismissRequest = { updateViewModel.resetState() },
+            shape = RoundedCornerShape(24.dp),
+            containerColor = MaterialTheme.colorScheme.surface,
+            tonalElevation = 6.dp,
+            title = {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(text = "🚀", fontSize = 24.sp)
+                    Text(
+                        text = "New Update Available!",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = StitchSlate800
+                    )
+                }
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column {
+                            Text(text = "Current Version", fontSize = 11.sp, color = StitchSlate500)
+                            Text(text = state.currentVersion, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = StitchSlate800)
+                        }
+                        Column(horizontalAlignment = Alignment.End) {
+                            Text(text = "Latest Version", fontSize = 11.sp, color = StitchSlate500)
+                            Text(text = state.latestVersion, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = StitchIndigo)
+                        }
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(1.dp)
+                            .background(StitchBorder)
+                    )
+
+                    Text(text = "Release Notes:", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = StitchSlate800)
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 180.dp)
+                            .background(StitchBg.copy(alpha = 0.4f), RoundedCornerShape(12.dp))
+                            .border(1.dp, StitchBorder, RoundedCornerShape(12.dp))
+                            .padding(12.dp)
+                    ) {
+                        val scrollState = rememberScrollState()
+                        Column(modifier = Modifier.verticalScroll(scrollState)) {
+                            Text(
+                                text = state.releaseNotes,
+                                fontSize = 12.sp,
+                                color = StitchSlate800,
+                                lineHeight = 18.sp
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showSettingsMenu = false
+                        updateViewModel.startDownload(state.downloadUrl)
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = StitchIndigo),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text(text = "Update Now", fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { updateViewModel.resetState() }
+                ) {
+                    Text(text = "Later", color = StitchSlate500, fontWeight = FontWeight.SemiBold)
+                }
+            }
+        )
+    }
+
+    // 2. Up To Date Dialog
+    if (updateState is UpdateUiState.NoUpdateAvailable) {
+        val state = updateState as UpdateUiState.NoUpdateAvailable
+        AlertDialog(
+            onDismissRequest = { updateViewModel.resetState() },
+            shape = RoundedCornerShape(20.dp),
+            containerColor = MaterialTheme.colorScheme.surface,
+            title = {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(text = "✨", fontSize = 22.sp)
+                    Text(
+                        text = "App Up To Date",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = StitchSlate800
+                    )
+                }
+            },
+            text = {
+                Text(
+                    text = "You are already on the latest version (${state.currentVersion}).",
+                    fontSize = 14.sp,
+                    color = StitchSlate800
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = { updateViewModel.resetState() },
+                    colors = ButtonDefaults.buttonColors(containerColor = StitchIndigo),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text(text = "Awesome", fontWeight = FontWeight.Bold)
+                }
+            }
+        )
+    }
+
+    // 3. Update Error Dialog
+    if (updateState is UpdateUiState.Error) {
+        val state = updateState as UpdateUiState.Error
+        AlertDialog(
+            onDismissRequest = { updateViewModel.resetState() },
+            shape = RoundedCornerShape(20.dp),
+            containerColor = MaterialTheme.colorScheme.surface,
+            title = {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(text = "⚠️", fontSize = 22.sp)
+                    Text(
+                        text = "Update Check Failed",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = StitchRed500
+                    )
+                }
+            },
+            text = {
+                Text(
+                    text = state.message,
+                    fontSize = 14.sp,
+                    color = StitchSlate800
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = { updateViewModel.resetState() },
+                    colors = ButtonDefaults.buttonColors(containerColor = StitchIndigo),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text(text = "Close", fontWeight = FontWeight.Bold)
+                }
+            }
+        )
+    }
+
+    // 4. Downloading Progress Overlay
+    if (updateState is UpdateUiState.Downloading) {
+        val progress = (updateState as UpdateUiState.Downloading).progress
+        val percentage = (progress * 100).toInt()
+
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.55f))
+                .clickable(enabled = false) {},
+            contentAlignment = Alignment.Center
+        ) {
+            Box(
+                modifier = Modifier
+                    .width(280.dp)
+                    .shadow(16.dp, RoundedCornerShape(24.dp))
+                    .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(24.dp))
+                    .border(1.dp, StitchBorder, RoundedCornerShape(24.dp))
+                    .padding(24.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    Text(
+                        text = "Downloading update...",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = StitchSlate800
+                    )
+
+                    Box(contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(
+                            progress = progress,
+                            modifier = Modifier.size(100.dp),
+                            strokeWidth = 6.dp,
+                            color = StitchIndigo,
+                            trackColor = StitchIndigo.copy(alpha = 0.15f)
+                        )
+                        Text(
+                            text = "$percentage%",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Black,
+                            color = StitchIndigo
+                        )
+                    }
+
+                    Text(
+                        text = "Please keep the app open",
+                        fontSize = 11.sp,
+                        color = StitchSlate500
+                    )
+                }
+            }
+        }
     }
 }
 
