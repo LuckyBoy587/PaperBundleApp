@@ -9,6 +9,8 @@ import androidx.activity.enableEdgeToEdge
 import androidx.lifecycle.ViewModelProvider
 import com.example.ui.TaskViewModel
 import com.example.ui.TaskViewModelFactory
+import com.example.ui.UpdateViewModel
+import com.example.ui.UpdateViewModelFactory
 import com.example.ui.theme.MyApplicationTheme
 
 class MainActivity : ComponentActivity() {
@@ -23,15 +25,21 @@ class MainActivity : ComponentActivity() {
 
         val app = application as TaskApplication
         val repository = app.repository
+        val updateRepository = app.updateRepository
         Log.d(TAG, "MainActivity: onCreate: TaskRepository loaded successfully")
         val viewModel = ViewModelProvider(
             this,
             TaskViewModelFactory(application, repository)
         )[TaskViewModel::class.java]
 
+        val updateViewModel = ViewModelProvider(
+            this,
+            UpdateViewModelFactory(application, updateRepository)
+        )[UpdateViewModel::class.java]
+
         handleIntent(intent, viewModel)
 
-        val mainActivityUI = MainActivityUI(viewModel)
+        val mainActivityUI = MainActivityUI(viewModel, updateViewModel)
         setContent {
             MyApplicationTheme {
                 mainActivityUI.Render()

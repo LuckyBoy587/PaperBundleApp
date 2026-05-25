@@ -2,4 +2,6 @@
 <paths>
     <!-- Share path for downloaded updates in the cache directory -->
     <cache-path name="apk_downloads" path="." />
+    <!-- Share path for downloaded updates in the public Downloads directory -->
+    <external-path name="external_downloads" path="Download" />
 </paths>
