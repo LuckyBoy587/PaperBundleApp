@@ -15,7 +15,7 @@ import com.example.ui.theme.MyApplicationTheme
 
 class MainActivity : ComponentActivity() {
     companion object {
-        private const val TAG = "PAPER_BUNDLE"
+        const val TAG = "PAPER_BUNDLE"
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {

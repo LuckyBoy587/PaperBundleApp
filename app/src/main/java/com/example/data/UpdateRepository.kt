@@ -340,8 +340,8 @@ class UpdateRepository(private val application: Application) {
      * Compares standard formats, e.g., '1.0' vs 'v1.1'.
      */
     fun isNewerVersion(current: String, latest: String): Boolean {
-        val cleanCurrent = current.removePrefix("v").trim()
-        val cleanLatest = latest.removePrefix("v").trim()
+        val cleanCurrent = current.dropWhile { !it.isDigit() }.trim()
+        val cleanLatest = latest.dropWhile { !it.isDigit() }.trim()
 
         val currentParts = cleanCurrent.split(".").map { it.toIntOrNull() ?: 0 }
         val latestParts = cleanLatest.split(".").map { it.toIntOrNull() ?: 0 }

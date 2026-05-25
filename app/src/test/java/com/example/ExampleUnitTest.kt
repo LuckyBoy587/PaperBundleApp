@@ -25,6 +25,11 @@ class ExampleUnitTest {
     assertTrue(checker.isNewerVersion("1.0", "1.0.1"))
     assertTrue(checker.isNewerVersion("v1.0.3", "v1.1"))
     assertTrue(checker.isNewerVersion("1.0.0", "2.0.0"))
+    
+    // Test cases with v. prefix (from tags like v.1.0.3)
+    assertTrue(checker.isNewerVersion("1.0.2", "v.1.0.3"))
+    assertTrue(checker.isNewerVersion("v.1.0.2", "v1.0.3"))
+    assertTrue(checker.isNewerVersion("v.1.0.2", "v.1.0.3"))
 
     // Older or equal versions
     assertFalse(checker.isNewerVersion("1.0.1", "1.0.1"))
@@ -32,5 +37,7 @@ class ExampleUnitTest {
     assertFalse(checker.isNewerVersion("1.0.2", "v1.0.2"))
     assertFalse(checker.isNewerVersion("1.0.3", "1.0.2"))
     assertFalse(checker.isNewerVersion("2.0.0", "1.0.0"))
+    assertFalse(checker.isNewerVersion("1.0.3", "v.1.0.3"))
+    assertFalse(checker.isNewerVersion("v.1.0.3", "1.0.3"))
   }
 }

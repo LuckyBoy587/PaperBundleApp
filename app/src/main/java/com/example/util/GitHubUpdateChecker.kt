@@ -109,8 +109,8 @@ object GitHubUpdateChecker {
      * Works with prefixes like "v" (e.g., "v1.0.1" vs "1.0.0").
      */
     fun isNewerVersion(current: String, latest: String): Boolean {
-        val cleanCurrent = current.removePrefix("v").trim()
-        val cleanLatest = latest.removePrefix("v").trim()
+        val cleanCurrent = current.dropWhile { !it.isDigit() }.trim()
+        val cleanLatest = latest.dropWhile { !it.isDigit() }.trim()
 
         val currentParts = cleanCurrent.split(".").map { it.toIntOrNull() ?: 0 }
         val latestParts = cleanLatest.split(".").map { it.toIntOrNull() ?: 0 }

@@ -1,6 +1,7 @@
 package com.example
 
 import android.app.Application
+import android.util.Log
 import com.example.data.TaskDatabase
 import com.example.data.TaskRepository
 import com.example.data.UpdateRepository
@@ -13,6 +14,7 @@ class TaskApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        Log.d(MainActivity.TAG, "Application started. Current version: ${BuildConfig.VERSION_NAME}")
         FirebaseSyncManager.init(this)
     }
 }
