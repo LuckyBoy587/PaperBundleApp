@@ -1,5 +1,3 @@
-import java.io.ByteArrayOutputStream
-
 plugins {
   alias(libs.plugins.android.application)
   alias(libs.plugins.kotlin.compose)
@@ -8,17 +6,6 @@ plugins {
   alias(libs.plugins.secrets)
 
   id("com.google.gms.google-services")
-}
-
-fun getGitVersionName(): String {
-  return try {
-    val stdout = ByteArrayOutputStream()
-    providers.exec {
-      commandLine("git", "describe", "--tags", "--always")
-    }.standardOutput.asText.get().trim().removePrefix("v").removePrefix(".")
-  } catch (e: Exception) {
-    "1.0.3" // Fallback version
-  }
 }
 
 android {
@@ -30,7 +17,7 @@ android {
     minSdk = 24
     targetSdk = 36
     versionCode = 1
-    versionName = getGitVersionName()
+    versionName = "1.0.4"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
