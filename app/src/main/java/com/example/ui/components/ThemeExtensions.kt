@@ -748,7 +748,7 @@ fun StitchScrollablePage(
             verticalArrangement = verticalArrangement
         ) {
             content()
-            Spacer(modifier = Modifier.height(24.dp)) // Premium bottom breathing room
+            Spacer(modifier = Modifier.height(120.dp)) // Premium bottom breathing room matching the overlay bottom nav
         }
     }
 }
@@ -771,7 +771,7 @@ fun StitchFixedPage(
 fun StitchLazyColumn(
     modifier: Modifier = Modifier,
     verticalArrangement: Arrangement.Vertical = Arrangement.spacedBy(10.dp),
-    contentPadding: PaddingValues = PaddingValues(top = 8.dp, bottom = 24.dp),
+    contentPadding: PaddingValues = PaddingValues(top = 8.dp, bottom = 120.dp),
     content: LazyListScope.() -> Unit
 ) {
     LazyColumn(

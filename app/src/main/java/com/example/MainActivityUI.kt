@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -20,6 +21,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -130,31 +132,7 @@ class MainActivityUI {
                         }
                     }
                 },
-                bottomBar = {
-                    if (showBottomBar) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(bottom = 16.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            MainBottomNavigationBar(
-                                navController = navController,
-                                currentRoute = currentRoute,
-                                onNavigate = { route ->
-                                    navController.navigate(route) {
-                                        // Save and restore tab state to support standard Bottom Nav preservation
-                                        popUpTo(navController.graph.findStartDestination().id) {
-                                            saveState = true
-                                        }
-                                        launchSingleTop = true
-                                        restoreState = true
-                                    }
-                                }
-                            )
-                        }
-                    }
-                }
+                bottomBar = {}
             ) { innerPadding ->
                 AppNavHost(
                     navController = navController,
@@ -165,9 +143,46 @@ class MainActivityUI {
                     settingsViewModel = settingsViewModel,
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(innerPadding)
-                        .padding(bottom = contentBottomPadding)
+                        .padding(top = innerPadding.calculateTopPadding())
                 )
+            }
+
+            if (showBottomBar) {
+                // Translucent fading background overlay at the bottom of the screen
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .align(Alignment.BottomCenter)
+                        .height(110.dp)
+                        .background(
+                            Brush.verticalGradient(
+                                colors = listOf(
+                                    Color.Transparent,
+                                    StitchBg.copy(alpha = 0.15f),
+                                    StitchBg.copy(alpha = 0.65f),
+                                    StitchBg.copy(alpha = 0.95f),
+                                    StitchBg
+                                )
+                            )
+                        )
+                        .padding(bottom = 16.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    MainBottomNavigationBar(
+                        navController = navController,
+                        currentRoute = currentRoute,
+                        onNavigate = { route ->
+                            navController.navigate(route) {
+                                // Save and restore tab state to support standard Bottom Nav preservation
+                                popUpTo(navController.graph.findStartDestination().id) {
+                                    saveState = true
+                                }
+                                launchSingleTop = true
+                                restoreState = true
+                            }
+                        }
+                    )
+                }
             }
         }
     }
