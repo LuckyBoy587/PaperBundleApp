@@ -406,148 +406,162 @@ fun SharedFamilyBoardScreen(viewModel: TaskViewModel, updateViewModel: UpdateVie
                 }
             }
         ) { innerPadding ->
-            Column(
+            AnimatedContent(
+                targetState = selectedTab,
+                transitionSpec = {
+                    if (targetState > initialState) {
+                        (slideInHorizontally { width -> width } + fadeIn(tween(220)))
+                            .togetherWith(slideOutHorizontally { width -> -width } + fadeOut(tween(180)))
+                    } else {
+                        (slideInHorizontally { width -> -width } + fadeIn(tween(220)))
+                            .togetherWith(slideOutHorizontally { width -> width } + fadeOut(tween(180)))
+                    }.using(SizeTransform(clip = false))
+                },
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(innerPadding)
-                    .padding(bottom = 86.dp) // Leave space for bottom nav
-            ) {
-                if (selectedTab == 0) {
-                    // A. Tasks Header with Filters (Fixed) - soft card container
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(start = 16.dp, end = 16.dp, top = 4.dp)
-                            .shadow(
-                                elevation = 4.dp,
-                                shape = RoundedCornerShape(20.dp),
-                                ambientColor = Color.Black.copy(alpha = 0.05f),
-                                spotColor = Color.Black.copy(alpha = 0.07f)
-                            )
-                            .clip(RoundedCornerShape(20.dp))
-                            .background(MaterialTheme.colorScheme.surface)
-                    ) {
-                        TasksSectionHeader()
-                    }
-
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    // B. Scrollable Dynamic Tasks List taking up remaining center part
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .fillMaxWidth()
-                    ) {
-                        LazyColumn(
-                            modifier = Modifier.fillMaxSize(),
-                            verticalArrangement = Arrangement.spacedBy(4.dp),
-                            contentPadding = PaddingValues(top = 8.dp, bottom = 12.dp)
-                        ) {
-                            items(sortedMembers, key = { it.uid }) { member ->
-                                val memberTasks = remember(activeTasksList, member.uid) {
-                                    activeTasksList.filter { it.profileOwner == member.uid }
-                                }
-                                MemberTodoBox(
-                                    member = member,
-                                    isCurrentUser = member.uid == session.uid,
-                                    tasks = memberTasks,
-                                    onToggleTask = { task -> viewModel.toggleTaskComplete(task) },
-                                    onDeleteTask = { task -> taskToDelete = task },
-                                    onAddTaskClick = {
-                                        viewModel.setProfile(member.uid)
-                                        isAddingTask = true
-                                    }
-                                )
-                            }
-                        }
-                    }
-
-                    // C. Completed Tasks Pull-up Bar
-                    val completedTasksCount = remember(allTasks) { allTasks.count { it.isCompleted } }
-                    if (completedTasksCount > 0) {
-                        Spacer(modifier = Modifier.height(8.dp))
+                    .padding(bottom = 86.dp),
+                label = "TabTransition"
+            ) { tab ->
+                if (tab == 0) {
+                    Column(modifier = Modifier.fillMaxSize()) {
+                        // A. Tasks Header with Filters (Fixed) - soft card container
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 16.dp)
+                                .padding(start = 16.dp, end = 16.dp, top = 4.dp)
                                 .shadow(
                                     elevation = 4.dp,
-                                    shape = RoundedCornerShape(16.dp),
+                                    shape = RoundedCornerShape(20.dp),
                                     ambientColor = Color.Black.copy(alpha = 0.05f),
                                     spotColor = Color.Black.copy(alpha = 0.07f)
                                 )
-                                .clip(RoundedCornerShape(16.dp))
-                                .background(MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f))
-                                .clickable { isCompletedSheetOpen = true }
-                                .draggable(
-                                    orientation = Orientation.Vertical,
-                                    state = rememberDraggableState { delta ->
-                                        if (delta < -3f) {
-                                            isCompletedSheetOpen = true
-                                        }
-                                    }
-                                )
-                                .padding(horizontal = 16.dp, vertical = 12.dp)
+                                .clip(RoundedCornerShape(20.dp))
+                                .background(MaterialTheme.colorScheme.surface)
                         ) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
+                            TasksSectionHeader()
+                        }
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        // B. Scrollable Dynamic Tasks List taking up remaining center part
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxWidth()
+                        ) {
+                            LazyColumn(
+                                modifier = Modifier.fillMaxSize(),
+                                verticalArrangement = Arrangement.spacedBy(4.dp),
+                                contentPadding = PaddingValues(top = 8.dp, bottom = 12.dp)
+                            ) {
+                                items(sortedMembers, key = { it.uid }) { member ->
+                                    val memberTasks = remember(activeTasksList, member.uid) {
+                                        activeTasksList.filter { it.profileOwner == member.uid }
+                                    }
+                                    Box(modifier = Modifier.animateItem()) {
+                                        MemberTodoBox(
+                                            member = member,
+                                            isCurrentUser = member.uid == session.uid,
+                                            tasks = memberTasks,
+                                            onToggleTask = { task -> viewModel.toggleTaskComplete(task) },
+                                            onDeleteTask = { task -> taskToDelete = task },
+                                            onAddTaskClick = {
+                                                viewModel.setProfile(member.uid)
+                                                isAddingTask = true
+                                            }
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        // C. Completed Tasks Pull-up Bar
+                        val completedTasksCount = remember(allTasks) { allTasks.count { it.isCompleted } }
+                        if (completedTasksCount > 0) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp)
+                                    .shadow(
+                                        elevation = 4.dp,
+                                        shape = RoundedCornerShape(16.dp),
+                                        ambientColor = Color.Black.copy(alpha = 0.05f),
+                                        spotColor = Color.Black.copy(alpha = 0.07f)
+                                    )
+                                    .clip(RoundedCornerShape(16.dp))
+                                    .background(MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f))
+                                    .clickable { isCompletedSheetOpen = true }
+                                    .draggable(
+                                        orientation = Orientation.Vertical,
+                                        state = rememberDraggableState { delta ->
+                                            if (delta < -3f) {
+                                                isCompletedSheetOpen = true
+                                            }
+                                        }
+                                    )
+                                    .padding(horizontal = 16.dp, vertical = 12.dp)
                             ) {
                                 Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(24.dp)
-                                            .background(MaterialTheme.colorScheme.secondaryContainer, CircleShape),
-                                        contentAlignment = Alignment.Center
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                                     ) {
-                                        Icon(
-                                            imageVector = Icons.Default.Check,
-                                            contentDescription = "Completed icon",
-                                            tint = StitchGreen500,
-                                            modifier = Modifier.size(14.dp)
-                                        )
-                                    }
-                                    Text(
-                                        text = "Completed Tasks",
-                                        fontSize = 14.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = StitchSlate800
-                                    )
-                                }
-                                
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                                ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .clip(RoundedCornerShape(100.dp))
-                                            .background(MaterialTheme.colorScheme.primaryContainer)
-                                            .padding(horizontal = 8.dp, vertical = 2.dp)
-                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(24.dp)
+                                                .background(MaterialTheme.colorScheme.secondaryContainer, CircleShape),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Check,
+                                                contentDescription = "Completed icon",
+                                                tint = StitchGreen500,
+                                                modifier = Modifier.size(14.dp)
+                                            )
+                                        }
                                         Text(
-                                            text = "$completedTasksCount",
-                                            color = StitchIndigo,
-                                            fontSize = 10.sp,
-                                            fontWeight = FontWeight.Bold
+                                            text = "Completed Tasks",
+                                            fontSize = 14.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = StitchSlate800
                                         )
                                     }
-                                    // Small pull-up arrow indicator
-                                    Text(
-                                        text = "▲",
-                                        fontSize = 10.sp,
-                                        color = StitchSlate500
-                                    )
+                                    
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .clip(RoundedCornerShape(100.dp))
+                                                .background(MaterialTheme.colorScheme.primaryContainer)
+                                                .padding(horizontal = 8.dp, vertical = 2.dp)
+                                        ) {
+                                            Text(
+                                                text = "$completedTasksCount",
+                                                color = StitchIndigo,
+                                                fontSize = 10.sp,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        }
+                                        // Small pull-up arrow indicator
+                                        Text(
+                                            text = "▲",
+                                            fontSize = 10.sp,
+                                            color = StitchSlate500
+                                        )
+                                    }
                                 }
                             }
                         }
                     }
-                } else if (selectedTab == 1) {
-                    // Beautiful Family Directory screen content directly above navbar
+                } else if (tab == 1) {
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
@@ -603,10 +617,11 @@ fun SharedFamilyBoardScreen(viewModel: TaskViewModel, updateViewModel: UpdateVie
                                     verticalArrangement = Arrangement.spacedBy(10.dp),
                                     modifier = Modifier.fillMaxSize()
                                 ) {
-                                    items(familyMembers) { member ->
+                                    items(familyMembers, key = { it.uid }) { member ->
                                         val isSelected = member.uid == curProfile
                                         Box(
                                             modifier = Modifier
+                                                .animateItem()
                                                 .fillMaxWidth()
                                                 .shadow(
                                                     elevation = if (isSelected) 6.dp else 2.dp,
@@ -690,6 +705,8 @@ fun SharedFamilyBoardScreen(viewModel: TaskViewModel, updateViewModel: UpdateVie
                             }
                         }
                     }
+                } else {
+                    Box(modifier = Modifier.fillMaxSize())
                 }
             }
         }
@@ -722,11 +739,21 @@ fun SharedFamilyBoardScreen(viewModel: TaskViewModel, updateViewModel: UpdateVie
             ) {
                 // Item 1: Tasks
                 val isTasksActive = selectedTab == 0
+                val tasksBgColor by animateColorAsState(
+                    targetValue = if (isTasksActive) StitchIndigo.copy(alpha = 0.12f) else Color.Transparent,
+                    animationSpec = tween(durationMillis = 250, easing = FastOutSlowInEasing),
+                    label = "TasksBgColor"
+                )
+                val tasksContentColor by animateColorAsState(
+                    targetValue = if (isTasksActive) StitchIndigo else StitchSlate500,
+                    animationSpec = tween(durationMillis = 250, easing = FastOutSlowInEasing),
+                    label = "TasksContentColor"
+                )
                 Box(
                     modifier = Modifier
                         .fillMaxHeight()
                         .clip(RoundedCornerShape(16.dp))
-                        .background(if (isTasksActive) StitchIndigo.copy(alpha = 0.1f) else Color.Transparent)
+                        .background(tasksBgColor)
                         .clickable {
                             selectedTab = 0
                             showSettingsMenu = false
@@ -738,23 +765,33 @@ fun SharedFamilyBoardScreen(viewModel: TaskViewModel, updateViewModel: UpdateVie
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.spacedBy(0.dp)
                     ) {
-                        HomeNavIcon(tint = if (isTasksActive) StitchIndigo else StitchSlate500)
+                        HomeNavIcon(tint = tasksContentColor)
                         Text(
                             text = "Tasks",
                             fontSize = 10.sp,
                             fontWeight = FontWeight.Bold,
-                            color = if (isTasksActive) StitchIndigo else StitchSlate500
+                            color = tasksContentColor
                         )
                     }
                 }
 
                 // Item 2: Family
                 val isFamilyActive = selectedTab == 1
+                val familyBgColor by animateColorAsState(
+                    targetValue = if (isFamilyActive) StitchIndigo.copy(alpha = 0.12f) else Color.Transparent,
+                    animationSpec = tween(durationMillis = 250, easing = FastOutSlowInEasing),
+                    label = "FamilyBgColor"
+                )
+                val familyContentColor by animateColorAsState(
+                    targetValue = if (isFamilyActive) StitchIndigo else StitchSlate500,
+                    animationSpec = tween(durationMillis = 250, easing = FastOutSlowInEasing),
+                    label = "FamilyContentColor"
+                )
                 Box(
                     modifier = Modifier
                         .fillMaxHeight()
                         .clip(RoundedCornerShape(16.dp))
-                        .background(if (isFamilyActive) StitchIndigo.copy(alpha = 0.1f) else Color.Transparent)
+                        .background(familyBgColor)
                         .clickable {
                             selectedTab = 1
                             showSettingsMenu = false
@@ -766,23 +803,33 @@ fun SharedFamilyBoardScreen(viewModel: TaskViewModel, updateViewModel: UpdateVie
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.spacedBy(0.dp)
                     ) {
-                        FamilyNavIcon(tint = if (isFamilyActive) StitchIndigo else StitchSlate500)
+                        FamilyNavIcon(tint = familyContentColor)
                         Text(
                             text = "Family",
                             fontSize = 10.sp,
                             fontWeight = FontWeight.Bold,
-                            color = if (isFamilyActive) StitchIndigo else StitchSlate500
+                            color = familyContentColor
                         )
                     }
                 }
 
                 // Item 3: Settings
                 val isSettingsActive = showSettingsMenu
+                val settingsBgColor by animateColorAsState(
+                    targetValue = if (isSettingsActive) StitchIndigo.copy(alpha = 0.12f) else Color.Transparent,
+                    animationSpec = tween(durationMillis = 250, easing = FastOutSlowInEasing),
+                    label = "SettingsBgColor"
+                )
+                val settingsContentColor by animateColorAsState(
+                    targetValue = if (isSettingsActive) StitchIndigo else StitchSlate500,
+                    animationSpec = tween(durationMillis = 250, easing = FastOutSlowInEasing),
+                    label = "SettingsContentColor"
+                )
                 Box(
                     modifier = Modifier
                         .fillMaxHeight()
                         .clip(RoundedCornerShape(16.dp))
-                        .background(if (isSettingsActive) StitchIndigo.copy(alpha = 0.1f) else Color.Transparent)
+                        .background(settingsBgColor)
                         .clickable {
                             if (showSettingsMenu) {
                                 showSettingsMenu = false
@@ -799,12 +846,12 @@ fun SharedFamilyBoardScreen(viewModel: TaskViewModel, updateViewModel: UpdateVie
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.spacedBy(0.dp)
                     ) {
-                        SettingsNavIcon(tint = if (isSettingsActive) StitchIndigo else StitchSlate500)
+                        SettingsNavIcon(tint = settingsContentColor)
                         Text(
                             text = "Settings",
                             fontSize = 10.sp,
                             fontWeight = FontWeight.Bold,
-                            color = if (isSettingsActive) StitchIndigo else StitchSlate500
+                            color = settingsContentColor
                         )
                     }
                 }
@@ -1154,18 +1201,20 @@ fun SharedFamilyBoardScreen(viewModel: TaskViewModel, updateViewModel: UpdateVie
                                         completedTasksList.filter { it.profileOwner == member.uid }
                                     }
                                     val isExpanded = collapsedCompletedMembers[member.uid] ?: true
-                                    MemberTodoBox(
-                                        member = member,
-                                        isCurrentUser = member.uid == session.uid,
-                                        tasks = memberCompletedTasks,
-                                        showAddButton = false,
-                                        isExpanded = isExpanded,
-                                        onToggleExpand = {
-                                            collapsedCompletedMembers[member.uid] = !isExpanded
-                                        },
-                                        onToggleTask = { task -> viewModel.toggleTaskComplete(task) },
-                                        onDeleteTask = { task -> taskToDelete = task }
-                                    )
+                                    Box(modifier = Modifier.animateItem()) {
+                                        MemberTodoBox(
+                                            member = member,
+                                            isCurrentUser = member.uid == session.uid,
+                                            tasks = memberCompletedTasks,
+                                            showAddButton = false,
+                                            isExpanded = isExpanded,
+                                            onToggleExpand = {
+                                                collapsedCompletedMembers[member.uid] = !isExpanded
+                                            },
+                                            onToggleTask = { task -> viewModel.toggleTaskComplete(task) },
+                                            onDeleteTask = { task -> taskToDelete = task }
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -1669,6 +1718,7 @@ fun MemberTodoBox(
             .clip(RoundedCornerShape(24.dp))
             .background(MaterialTheme.colorScheme.surface)
             .border(BorderStroke(1.dp, StitchBorder), RoundedCornerShape(24.dp))
+            .animateContentSize()
     ) {
         // Unique member accent vertical bar indicator on the left
         Box(
@@ -2503,9 +2553,32 @@ fun AddTaskDialog(
         label = "pulseAlpha"
     )
 
+    var animateTrigger by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        animateTrigger = true
+    }
+    val scale by animateFloatAsState(
+        targetValue = if (animateTrigger) 1f else 0.85f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioLowBouncy,
+            stiffness = Spring.StiffnessMediumLow
+        ),
+        label = "dialogScale"
+    )
+    val alphaVal by animateFloatAsState(
+        targetValue = if (animateTrigger) 1f else 0f,
+        animationSpec = tween(durationMillis = 200, easing = FastOutSlowInEasing),
+        label = "dialogAlpha"
+    )
+
     Dialog(onDismissRequest = onDismiss) {
         Box(
             modifier = Modifier
+                .graphicsLayer {
+                    scaleX = scale
+                    scaleY = scale
+                    alpha = alphaVal
+                }
                 .fillMaxWidth()
                 .padding(vertical = 8.dp)
                 .shadow(elevation = 24.dp, shape = RoundedCornerShape(28.dp))
@@ -2642,11 +2715,34 @@ fun DeleteConfirmDialog(
     onDismiss: () -> Unit,
     onConfirm: () -> Unit
 ) {
+    var animateTrigger by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        animateTrigger = true
+    }
+    val scale by animateFloatAsState(
+        targetValue = if (animateTrigger) 1f else 0.85f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioLowBouncy,
+            stiffness = Spring.StiffnessMediumLow
+        ),
+        label = "deleteDialogScale"
+    )
+    val alphaVal by animateFloatAsState(
+        targetValue = if (animateTrigger) 1f else 0f,
+        animationSpec = tween(durationMillis = 200, easing = FastOutSlowInEasing),
+        label = "deleteDialogAlpha"
+    )
+
     Dialog(onDismissRequest = onDismiss) {
         Card(
             shape = RoundedCornerShape(24.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
             modifier = Modifier
+                .graphicsLayer {
+                    scaleX = scale
+                    scaleY = scale
+                    alpha = alphaVal
+                }
                 .fillMaxWidth()
                 .padding(16.dp)
                 .border(1.dp, StitchBorder, RoundedCornerShape(24.dp))
@@ -2713,11 +2809,34 @@ fun FamilySelectorDialog(
     onProfileSelect: (String) -> Unit,
     onDismiss: () -> Unit
 ) {
+    var animateTrigger by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        animateTrigger = true
+    }
+    val scale by animateFloatAsState(
+        targetValue = if (animateTrigger) 1f else 0.85f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioLowBouncy,
+            stiffness = Spring.StiffnessMediumLow
+        ),
+        label = "familyDialogScale"
+    )
+    val alphaVal by animateFloatAsState(
+        targetValue = if (animateTrigger) 1f else 0f,
+        animationSpec = tween(durationMillis = 200, easing = FastOutSlowInEasing),
+        label = "familyDialogAlpha"
+    )
+
     Dialog(onDismissRequest = onDismiss) {
         Card(
             shape = RoundedCornerShape(28.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
             modifier = Modifier
+                .graphicsLayer {
+                    scaleX = scale
+                    scaleY = scale
+                    alpha = alphaVal
+                }
                 .fillMaxWidth()
                 .padding(16.dp)
                 .border(1.dp, StitchBorder, RoundedCornerShape(28.dp))
