@@ -1,10 +1,21 @@
 package com.example
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -16,8 +27,6 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import com.example.data.SyncState
-import com.example.ui.components.GlobalSyncStatusBar
 import com.example.ui.components.MainHeader
 import com.example.ui.components.StitchBg
 import com.example.ui.navigation.AppNavHost
@@ -32,7 +41,6 @@ import com.example.ui.screens.settings.SettingsViewModelFactory
 import com.example.ui.screens.tasks.TasksViewModel
 import com.example.ui.screens.tasks.TasksViewModelFactory
 import com.example.util.FirebaseSyncManager
-import com.example.util.Language
 import kotlinx.coroutines.delay
 
 class MainActivityUI {
@@ -85,9 +93,6 @@ class MainActivityUI {
                 containerColor = Color.Transparent,
                 topBar = {
                     if (showBottomBar && userSession != null) {
-                        val session = userSession!!
-                        val activeMember = familyMembers.find { it.uid == curProfile }
-                        val initialLetter = (activeMember?.name ?: session.name).take(1).uppercase()
                         val language by tasksViewModel.curLanguage.collectAsState()
 
                         val isNetworkAvailable = remember { mutableStateOf(FirebaseSyncManager.isNetworkAvailable()) }
@@ -96,11 +101,6 @@ class MainActivityUI {
                                 isNetworkAvailable.value = FirebaseSyncManager.isNetworkAvailable()
                                 delay(3000)
                             }
-                        }
-
-                        val activeTasks by tasksViewModel.tasks.collectAsState()
-                        val hasPendingWrites = remember(activeTasks) {
-                            activeTasks.any { it.syncState == SyncState.PENDING_WRITE || it.syncState == SyncState.SYNCING }
                         }
 
                         Column(
@@ -123,34 +123,10 @@ class MainActivityUI {
                                     .background(MaterialTheme.colorScheme.surface)
                             ) {
                                 MainHeader(
-                                    initial = initialLetter,
                                     language = language,
-                                    onAvatarClick = {
-                                        navController.navigate(Screen.Family.route) {
-                                            popUpTo(navController.graph.findStartDestination().id) {
-                                                saveState = true
-                                            }
-                                            launchSingleTop = true
-                                            restoreState = true
-                                        }
-                                    },
-                                    onLanguageClick = {
-                                        val nextLanguage = if (language == Language.EN) Language.TA else Language.EN
-                                        tasksViewModel.setLanguage(nextLanguage)
-                                        loginViewModel.curLanguage.value = nextLanguage
-                                        familyViewModel.curLanguage.value = nextLanguage
-                                        settingsViewModel.curLanguage.value = nextLanguage
-                                    }
+                                    isNetworkAvailable = isNetworkAvailable.value
                                 )
                             }
-
-                            Spacer(modifier = Modifier.height(6.dp))
-
-                            GlobalSyncStatusBar(
-                                isNetworkAvailable = isNetworkAvailable.value,
-                                hasPendingWrites = hasPendingWrites,
-                                isFirebaseInitialized = FirebaseSyncManager.isFirebaseInitialized
-                            )
                         }
                     }
                 },
