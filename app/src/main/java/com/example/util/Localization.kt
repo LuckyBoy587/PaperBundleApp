@@ -8,6 +8,7 @@ object LocalizedStrings {
     private val strings = mapOf(
         Language.EN to mapOf(
             "title" to "PaperBundle",
+            "search_placeholder" to "Search notes...",
             "amma" to "Amma",
             "appa" to "Appa",
             "amma_bundle" to "Amma's Bundle",
@@ -53,6 +54,7 @@ object LocalizedStrings {
         ),
         Language.TA to mapOf(
             "title" to "காகிதக்கட்டு",
+            "search_placeholder" to "குறிப்புகளைத் தேடுக...",
             "amma" to "அம்மா",
             "appa" to "அப்பா",
             "amma_bundle" to "அம்மாவின் கட்டு",

@@ -2,34 +2,80 @@ package com.example.ui.screens.tasks
 
 import android.app.Activity
 import android.content.Intent
-import android.os.Bundle
 import android.speech.RecognizerIntent
-import android.util.Log
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.*
-import androidx.compose.animation.core.*
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -40,6 +86,8 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -52,7 +100,16 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.example.data.SyncState
 import com.example.data.Task
-import com.example.ui.components.*
+import com.example.ui.components.DeleteConfirmDialog
+import com.example.ui.components.StitchBorder
+import com.example.ui.components.StitchFixedPage
+import com.example.ui.components.StitchGreen500
+import com.example.ui.components.StitchIndigo
+import com.example.ui.components.StitchLazyColumn
+import com.example.ui.components.StitchRed500
+import com.example.ui.components.StitchSlate500
+import com.example.ui.components.StitchSlate800
+import com.example.ui.components.getMemberColor
 import com.example.util.FamilyMember
 import com.example.util.FirebaseSyncManager
 import com.example.util.Language
@@ -60,15 +117,11 @@ import com.example.util.LocalizedStrings
 import com.example.util.UserSession
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import androidx.compose.foundation.gestures.draggable
-import androidx.compose.foundation.gestures.Orientation
-import androidx.compose.foundation.gestures.rememberDraggableState
 
 @Composable
 fun TasksScreen(
     viewModel: TasksViewModel,
-    session: UserSession,
-    onNavigateToFamily: () -> Unit
+    session: UserSession
 ) {
     val context = LocalContext.current
     val language by viewModel.curLanguage.collectAsState()
@@ -89,7 +142,7 @@ fun TasksScreen(
     val hasPendingWrites = remember(activeTasks) {
         activeTasks.any { it.syncState == SyncState.PENDING_WRITE || it.syncState == SyncState.SYNCING }
     }
-    
+
     var isAddingTask by remember { mutableStateOf(false) }
 
     LaunchedEffect(triggerAddTask) {
@@ -105,7 +158,7 @@ fun TasksScreen(
 
     // Speech-to-Text Setup
     var voiceTextForInput by remember { mutableStateOf("") }
-    var speechTriggerId by remember { mutableStateOf(0) }
+    var speechTriggerId by remember { mutableIntStateOf(0) }
     var isListening by remember { mutableStateOf(false) }
 
     val speechRecognizerLauncher = rememberLauncherForActivityResult(
@@ -153,8 +206,15 @@ fun TasksScreen(
         }
     }
 
-    val activeTasksList = remember(allTasks) {
-        allTasks.filter { !it.isCompleted }
+    var searchQuery by remember { mutableStateOf("") }
+
+    val filteredActiveTasksList = remember(allTasks, searchQuery) {
+        allTasks.filter {
+            !it.isCompleted && (searchQuery.isBlank() || it.title.contains(
+                searchQuery,
+                ignoreCase = true
+            ))
+        }
     }
 
     val sortedMembers = remember(familyMembers, session) {
@@ -174,133 +234,155 @@ fun TasksScreen(
         list
     }
 
-    val activeMember = familyMembers.find { it.uid == curProfile }
-    val initialLetter = (activeMember?.name ?: session.name).take(1).uppercase()
-
     StitchFixedPage {
         Column(
             modifier = Modifier
                 .fillMaxSize()
         ) {
-                Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
-                // B. Scrollable Dynamic Tasks List
-                Box(
+            // Search & Reveal Completed Tasks Row
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
                     modifier = Modifier
                         .weight(1f)
-                        .fillMaxWidth()
-                ) {
-                    StitchLazyColumn(
-                        modifier = Modifier.fillMaxSize(),
-                        verticalArrangement = Arrangement.spacedBy(4.dp),
-                        contentPadding = PaddingValues(top = 8.dp, bottom = 24.dp)
-                    ) {
-                        items(sortedMembers, key = { it.uid }) { member ->
-                            val memberTasks = remember(activeTasksList, member.uid) {
-                                activeTasksList.filter { it.profileOwner == member.uid }
-                            }
-                            Box(modifier = Modifier.animateItem()) {
-                                MemberTodoBox(
-                                    member = member,
-                                    isCurrentUser = member.uid == session.uid,
-                                    tasks = memberTasks,
-                                    onToggleTask = { task -> viewModel.toggleTaskComplete(task) },
-                                    onDeleteTask = { task -> taskToDelete = task },
-                                    onAddTaskClick = {
-                                        viewModel.setProfile(member.uid)
-                                        isAddingTask = true
-                                    }
+                        .height(52.dp)
+                        .shadow(2.dp, RoundedCornerShape(16.dp)),
+                    placeholder = {
+                        Text(
+                            text = LocalizedStrings.get("search_placeholder", language),
+                            fontSize = 14.sp,
+                            color = StitchSlate500
+                        )
+                    },
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Default.Search,
+                            contentDescription = "Search Icon",
+                            tint = StitchSlate500,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    },
+                    trailingIcon = {
+                        if (searchQuery.isNotEmpty()) {
+                            IconButton(onClick = { searchQuery = "" }) {
+                                Icon(
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = "Clear Search",
+                                    tint = StitchSlate500,
+                                    modifier = Modifier.size(18.dp)
                                 )
                             }
                         }
-                    }
-                }
+                    },
+                    singleLine = true,
+                    shape = RoundedCornerShape(16.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedContainerColor = MaterialTheme.colorScheme.surface,
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                        focusedBorderColor = StitchIndigo.copy(alpha = 0.5f),
+                        unfocusedBorderColor = Color.Transparent
+                    ),
+                    textStyle = TextStyle(fontSize = 14.sp, color = StitchSlate800)
+                )
 
-                // C. Completed Tasks Pull-up Bar
                 val completedTasksCount = remember(allTasks) { allTasks.count { it.isCompleted } }
-                if (completedTasksCount > 0) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Box(
+                Box(
+                    modifier = Modifier
+                        .height(52.dp)
+                        .shadow(4.dp, RoundedCornerShape(16.dp))
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(MaterialTheme.colorScheme.surface)
+                        .clickable(enabled = completedTasksCount > 0) {
+                            isCompletedSheetOpen = true
+                        }
+                        .padding(horizontal = 16.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    // Crucial Update: Entire row inside is now fully transparent as requested
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp)
-                            .shadow(
-                                elevation = 4.dp,
-                                shape = RoundedCornerShape(16.dp),
-                                ambientColor = Color.Black.copy(alpha = 0.05f),
-                                spotColor = Color.Black.copy(alpha = 0.07f)
-                            )
-                            .clip(RoundedCornerShape(16.dp))
-                            .background(MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f))
-                            .clickable { isCompletedSheetOpen = true }
-                            .draggable(
-                                orientation = Orientation.Vertical,
-                                state = rememberDraggableState { delta ->
-                                    if (delta < -3f) {
-                                        isCompletedSheetOpen = true
-                                    }
-                                }
-                            )
-                            .padding(horizontal = 16.dp, vertical = 12.dp)
                     ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
+                        Box(
+                            modifier = Modifier
+                                .size(24.dp)
+                                .background(
+                                    if (completedTasksCount > 0) StitchIndigo
+                                    else MaterialTheme.colorScheme.secondaryContainer,
+                                    CircleShape
+                                ),
+                            contentAlignment = Alignment.Center
                         ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(24.dp)
-                                        .background(MaterialTheme.colorScheme.secondaryContainer, CircleShape),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Check,
-                                        contentDescription = "Completed icon",
-                                        tint = StitchGreen500,
-                                        modifier = Modifier.size(14.dp)
-                                    )
-                                }
-                                Text(
-                                    text = "Completed Tasks",
-                                    fontSize = 14.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = StitchSlate800
-                                )
-                            }
-                            
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(4.dp)
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(100.dp))
-                                        .background(MaterialTheme.colorScheme.primaryContainer)
-                                        .padding(horizontal = 8.dp, vertical = 2.dp)
-                                ) {
-                                    Text(
-                                        text = "$completedTasksCount",
-                                        color = StitchIndigo,
-                                        fontSize = 10.sp,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                }
-                                Text(
-                                    text = "▲",
-                                    fontSize = 10.sp,
-                                    color = StitchSlate500
-                                )
+                            Icon(
+                                imageVector = Icons.Default.Check,
+                                contentDescription = "Completed Icon",
+                                tint = if (completedTasksCount > 0) Color.White else StitchSlate500,
+                                modifier = Modifier.size(14.dp)
+                            )
+                        }
+                        if (completedTasksCount > 0) {
+                            Text(
+                                text = "$completedTasksCount",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = StitchIndigo
+                            )
+                        } else {
+                            Text(
+                                text = "0",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = StitchSlate500
+                            )
+                        }
                     }
                 }
-                Spacer(modifier = Modifier.height(20.dp))
+            }
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            // B. Scrollable Dynamic Tasks List
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+            ) {
+                StitchLazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                    contentPadding = PaddingValues(top = 8.dp, bottom = 120.dp)
+                ) {
+                    items(sortedMembers, key = { it.uid }) { member ->
+                        val memberTasks = remember(filteredActiveTasksList, member.uid) {
+                            filteredActiveTasksList.filter { it.profileOwner == member.uid }
+                        }
+                        Box(modifier = Modifier.animateItem()) {
+                            MemberTodoBox(
+                                member = member,
+                                isCurrentUser = member.uid == session.uid,
+                                tasks = memberTasks,
+                                onToggleTask = { task -> viewModel.toggleTaskComplete(task) },
+                                onDeleteTask = { task -> taskToDelete = task },
+                                onAddTaskClick = {
+                                    viewModel.setProfile(member.uid)
+                                    isAddingTask = true
+                                }
+                            )
+                        }
+                    }
+                }
             }
         }
-    }
 
         // D. Sliding Completed Tasks Sheet
         val scrimAlpha by animateFloatAsState(
@@ -359,7 +441,10 @@ fun TasksScreen(
                         .fillMaxWidth()
                         .height(with(density) { (constraints.maxHeight * 0.75f).toDp() })
                         .offset {
-                            androidx.compose.ui.unit.IntOffset(0, (sheetOffsetY.value - expandedOffsetPx).toInt())
+                            androidx.compose.ui.unit.IntOffset(
+                                0,
+                                (sheetOffsetY.value - expandedOffsetPx).toInt()
+                            )
                         }
                         .shadow(
                             elevation = 24.dp,
@@ -386,7 +471,12 @@ fun TasksScreen(
                                     state = rememberDraggableState { delta ->
                                         if (delta > 0f) {
                                             coroutineScope.launch {
-                                                sheetOffsetY.snapTo((sheetOffsetY.value + delta).coerceIn(expandedOffsetPx, collapsedOffsetPx))
+                                                sheetOffsetY.snapTo(
+                                                    (sheetOffsetY.value + delta).coerceIn(
+                                                        expandedOffsetPx,
+                                                        collapsedOffsetPx
+                                                    )
+                                                )
                                             }
                                         }
                                     },
@@ -418,7 +508,10 @@ fun TasksScreen(
                                     modifier = Modifier
                                         .width(48.dp)
                                         .height(5.dp)
-                                        .background(MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(100.dp))
+                                        .background(
+                                            MaterialTheme.colorScheme.outlineVariant,
+                                            RoundedCornerShape(100.dp)
+                                        )
                                 )
                             }
 
@@ -566,8 +659,17 @@ fun MemberTaskRow(
                 modifier = Modifier
                     .size(22.dp)
                     .clip(CircleShape)
-                    .border(2.dp, if (task.isCompleted) StitchIndigo else MaterialTheme.colorScheme.primary.copy(alpha = 0.4f), CircleShape)
-                    .background(if (task.isCompleted) StitchIndigo else Color.Transparent, CircleShape)
+                    .border(
+                        2.dp,
+                        if (task.isCompleted) StitchIndigo else MaterialTheme.colorScheme.primary.copy(
+                            alpha = 0.4f
+                        ),
+                        CircleShape
+                    )
+                    .background(
+                        if (task.isCompleted) StitchIndigo else Color.Transparent,
+                        CircleShape
+                    )
                     .clickable { onToggle() },
                 contentAlignment = Alignment.Center
             ) {
@@ -599,7 +701,7 @@ fun MemberTaskRow(
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
-                
+
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
@@ -620,7 +722,7 @@ fun MemberTaskRow(
                                 maxLines = 1
                             )
                         }
-                        
+
                         Box(
                             modifier = Modifier
                                 .width(1.dp)
@@ -721,7 +823,7 @@ fun MemberTodoBox(
     val accentColor = remember(member.uid, isDark) { getMemberColor(member.uid, isDark) }
     val isNetworkAvailable = FirebaseSyncManager.isNetworkAvailable()
     val isFirebaseInitialized = FirebaseSyncManager.isFirebaseInitialized
-    
+
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -737,13 +839,14 @@ fun MemberTodoBox(
             .border(BorderStroke(1.dp, StitchBorder), RoundedCornerShape(24.dp))
             .animateContentSize()
     ) {
-        // Left color indicator bar
+        // Crucial Layout Fix: Inner Left indicator bar radius adjustment to match concentric alignment
         Box(
             modifier = Modifier
                 .width(5.dp)
                 .fillMaxHeight()
                 .align(Alignment.CenterStart)
-                .background(accentColor)
+                // Using topStart and bottomStart rounding to fluidly interface with the master 24.dp wrapper
+                .background(accentColor, RoundedCornerShape(topStart = 24.dp, bottomStart = 24.dp))
         )
 
         Column(
@@ -835,7 +938,7 @@ fun MemberTodoBox(
                         .height(1.dp)
                         .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f))
                 )
-                
+
                 Column(
                     verticalArrangement = Arrangement.spacedBy(0.dp),
                     modifier = Modifier.fillMaxWidth()

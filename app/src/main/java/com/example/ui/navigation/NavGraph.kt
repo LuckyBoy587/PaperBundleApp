@@ -140,14 +140,7 @@ fun AppNavHost(
             if (session != null) {
                 TasksScreen(
                     viewModel = tasksViewModel,
-                    session = session,
-                    onNavigateToFamily = {
-                        navController.navigate(Screen.Family.route) {
-                            popUpTo(navController.graph.findStartDestination().id) { saveState = true }
-                            launchSingleTop = true
-                            restoreState = true
-                        }
-                    }
+                    session = session
                 )
             }
         }
