@@ -7,16 +7,16 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.lifecycle.ViewModelProvider
-import com.example.ui.TaskViewModel
-import com.example.ui.TaskViewModelFactory
-import com.example.ui.UpdateViewModel
-import com.example.ui.UpdateViewModelFactory
+import com.example.ui.screens.tasks.TasksViewModel
+import com.example.ui.screens.tasks.TasksViewModelFactory
 import com.example.ui.theme.MyApplicationTheme
 
 class MainActivity : ComponentActivity() {
     companion object {
         const val TAG = "PAPER_BUNDLE"
     }
+
+    private lateinit var tasksViewModel: TasksViewModel
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -25,23 +25,19 @@ class MainActivity : ComponentActivity() {
 
         val app = application as TaskApplication
         val repository = app.repository
-        val updateRepository = app.updateRepository
         Log.d(TAG, "MainActivity: onCreate: TaskRepository loaded successfully")
-        val viewModel = ViewModelProvider(
+
+        // Scope TasksViewModel to the Activity to handle widgets / external intents
+        tasksViewModel = ViewModelProvider(
             this,
-            TaskViewModelFactory(application, repository)
-        )[TaskViewModel::class.java]
+            TasksViewModelFactory(application, repository)
+        )[TasksViewModel::class.java]
 
-        val updateViewModel = ViewModelProvider(
-            this,
-            UpdateViewModelFactory(application, updateRepository)
-        )[UpdateViewModel::class.java]
+        handleIntent(intent)
 
-        handleIntent(intent, viewModel)
-
-        val mainActivityUI = MainActivityUI(viewModel, updateViewModel)
         setContent {
             MyApplicationTheme {
+                val mainActivityUI = MainActivityUI()
                 mainActivityUI.Render()
             }
         }
@@ -51,20 +47,14 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         Log.d(TAG, "MainActivity: onNewIntent() called")
-        val app = application as TaskApplication
-        val repository = app.repository
-        val viewModel = ViewModelProvider(
-            this,
-            TaskViewModelFactory(application, repository)
-        )[TaskViewModel::class.java]
-        handleIntent(intent, viewModel)
+        handleIntent(intent)
     }
 
-    private fun handleIntent(intent: Intent, viewModel: TaskViewModel) {
+    private fun handleIntent(intent: Intent) {
         val openAddTask = intent.getBooleanExtra("open_add_task", false)
         Log.d(TAG, "MainActivity: handleIntent: openAddTask=$openAddTask")
         if (openAddTask) {
-            viewModel.triggerAddTaskDialog.value = true
+            tasksViewModel.triggerAddTaskDialog.value = true
         }
     }
 }
