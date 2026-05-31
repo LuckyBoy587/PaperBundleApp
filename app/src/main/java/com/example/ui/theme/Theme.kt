@@ -11,7 +11,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
-private val LightColorScheme = lightColorScheme(
+val LightColorScheme = lightColorScheme(
     primary = Color(0xFF6366F1),          // StitchIndigo
     onPrimary = Color.White,
     primaryContainer = Color(0xFFEEF2FF),   // StitchBlue50
@@ -43,7 +43,7 @@ private val LightColorScheme = lightColorScheme(
     onErrorContainer = Color(0xFFEF4444)
 )
 
-private val DarkColorScheme = darkColorScheme(
+val DarkColorScheme = darkColorScheme(
     primary = Color(0xFF818CF8),          // StitchIndigoDark
     onPrimary = Color(0xFF0B0C0E),
     primaryContainer = Color(0xFF312E81),   // Cozy dark Indigo container
