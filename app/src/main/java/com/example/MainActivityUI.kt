@@ -54,7 +54,8 @@ class MainActivityUI {
         // Instantiate isolated screen ViewModels using Compose viewModel() to respect independent lifecycles
         val loginViewModel: LoginViewModel = viewModel(factory = LoginViewModelFactory(app))
         val tasksViewModel: TasksViewModel = viewModel(factory = TasksViewModelFactory(app, app.repository))
-        val familyViewModel: FamilyViewModel = viewModel(factory = FamilyViewModelFactory(app))
+        val familyViewModel: FamilyViewModel =
+            viewModel(factory = FamilyViewModelFactory(app, app.repository))
         val settingsViewModel: SettingsViewModel = viewModel(factory = SettingsViewModelFactory(app, app.updateRepository))
 
         val navController = rememberNavController()
