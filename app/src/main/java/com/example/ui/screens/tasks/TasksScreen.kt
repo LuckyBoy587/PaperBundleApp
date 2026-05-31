@@ -53,6 +53,7 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
@@ -153,6 +154,7 @@ fun TasksScreen(
     }
 
     var taskToDelete by remember { mutableStateOf<Task?>(null) }
+    var taskToEdit by remember { mutableStateOf<Task?>(null) }
     var isCompletedSheetOpen by remember { mutableStateOf(false) }
     val collapsedCompletedMembers = remember { mutableStateMapOf<String, Boolean>() }
 
@@ -372,6 +374,7 @@ fun TasksScreen(
                                 isCurrentUser = member.uid == session.uid,
                                 tasks = memberTasks,
                                 onToggleTask = { task -> viewModel.toggleTaskComplete(task) },
+                                onEditTask = { task -> taskToEdit = task },
                                 onDeleteTask = { task -> taskToDelete = task },
                                 onAddTaskClick = {
                                     viewModel.setProfile(member.uid)
@@ -586,6 +589,7 @@ fun TasksScreen(
                                                 collapsedCompletedMembers[member.uid] = !isExpanded
                                             },
                                             onToggleTask = { task -> viewModel.toggleTaskComplete(task) },
+                                            onEditTask = { task -> taskToEdit = task },
                                             onDeleteTask = { task -> taskToDelete = task }
                                         )
                                     }
@@ -619,6 +623,29 @@ fun TasksScreen(
         )
     }
 
+    // Edit Task Dialog
+    taskToEdit?.let { task ->
+        AddTaskDialog(
+            language = language,
+            profile = task.profileOwner,
+            voiceText = voiceTextForInput,
+            speechTriggerId = speechTriggerId,
+            isListening = isListening,
+            initialText = task.title,
+            dialogTitle = LocalizedStrings.get("edit_task", language),
+            onVoiceClick = startSpeechRecognition,
+            onDismiss = {
+                taskToEdit = null
+                voiceTextForInput = ""
+            },
+            onSave = { title ->
+                viewModel.updateTaskTitle(task, title)
+                taskToEdit = null
+                voiceTextForInput = ""
+            }
+        )
+    }
+
     // Delete Task Dialog
     taskToDelete?.let { task ->
         DeleteConfirmDialog(
@@ -638,6 +665,7 @@ fun TasksScreen(
 fun MemberTaskRow(
     task: Task,
     onToggle: () -> Unit,
+    onEdit: () -> Unit,
     onDelete: () -> Unit,
     isNetworkAvailable: Boolean,
     isFirebaseInitialized: Boolean
@@ -712,7 +740,7 @@ fun MemberTaskRow(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(100.dp))
                                 .background(MaterialTheme.colorScheme.surfaceVariant)
-                                .padding(horizontal = 6.dp, vertical = 1.dp)
+                                .padding(horizontal = 6.dp, vertical = 0.dp)
                         ) {
                             Text(
                                 text = "By ${task.createdByName.substringBefore(" ")}",
@@ -722,13 +750,6 @@ fun MemberTaskRow(
                                 maxLines = 1
                             )
                         }
-
-                        Box(
-                            modifier = Modifier
-                                .width(1.dp)
-                                .height(8.dp)
-                                .background(MaterialTheme.colorScheme.outlineVariant)
-                        )
                     }
 
                     // Sync State Badge
@@ -792,17 +813,36 @@ fun MemberTaskRow(
             }
         }
 
-        // Trash Button
-        IconButton(
-            onClick = onDelete,
-            modifier = Modifier.size(28.dp)
+        // Action Buttons Row (Edit & Trash)
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-            Icon(
-                imageVector = Icons.Default.Delete,
-                contentDescription = "Delete",
-                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                modifier = Modifier.size(16.dp)
-            )
+            // Edit Button
+            IconButton(
+                onClick = onEdit,
+                modifier = Modifier.size(28.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Edit,
+                    contentDescription = "Edit",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                    modifier = Modifier.size(16.dp)
+                )
+            }
+
+            // Trash Button
+            IconButton(
+                onClick = onDelete,
+                modifier = Modifier.size(28.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Delete,
+                    contentDescription = "Delete",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                    modifier = Modifier.size(16.dp)
+                )
+            }
         }
     }
 }
@@ -816,6 +856,7 @@ fun MemberTodoBox(
     isExpanded: Boolean = true,
     onToggleExpand: (() -> Unit)? = null,
     onToggleTask: (Task) -> Unit,
+    onEditTask: (Task) -> Unit,
     onDeleteTask: (Task) -> Unit,
     onAddTaskClick: () -> Unit = {}
 ) {
@@ -947,6 +988,7 @@ fun MemberTodoBox(
                         MemberTaskRow(
                             task = task,
                             onToggle = { onToggleTask(task) },
+                            onEdit = { onEditTask(task) },
                             onDelete = { onDeleteTask(task) },
                             isNetworkAvailable = isNetworkAvailable,
                             isFirebaseInitialized = isFirebaseInitialized
@@ -973,11 +1015,13 @@ fun AddTaskDialog(
     voiceText: String,
     speechTriggerId: Int,
     isListening: Boolean = false,
+    initialText: String = "",
+    dialogTitle: String? = null,
     onVoiceClick: () -> Unit,
     onDismiss: () -> Unit,
     onSave: (String) -> Unit
 ) {
-    var textState by remember { mutableStateOf("") }
+    var textState by remember { mutableStateOf(initialText) }
     val focusRequester = remember { FocusRequester() }
 
     LaunchedEffect(voiceText, speechTriggerId) {
@@ -1043,7 +1087,7 @@ fun AddTaskDialog(
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Text(
-                    text = LocalizedStrings.get("add_task", language),
+                    text = dialogTitle ?: LocalizedStrings.get("add_task", language),
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Bold,
                     color = StitchSlate800

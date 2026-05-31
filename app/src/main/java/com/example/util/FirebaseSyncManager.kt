@@ -4,25 +4,26 @@ import android.content.Context
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.util.Log
+import androidx.core.content.edit
+import androidx.glance.appwidget.updateAll
 import com.example.BuildConfig
+import com.example.data.SyncState
 import com.example.data.Task
 import com.example.data.TaskDao
-import com.example.data.SyncState
 import com.google.firebase.FirebaseApp
 import com.google.firebase.FirebaseOptions
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.FirebaseFirestoreSettings
-import com.google.firebase.firestore.PersistentCacheSettings
 import com.google.firebase.firestore.ListenerRegistration
+import com.google.firebase.firestore.MetadataChanges
+import com.google.firebase.firestore.PersistentCacheSettings
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import java.util.UUID
-import androidx.core.content.edit
-import androidx.glance.appwidget.updateAll
 
 // Stores user details and family session info
 data class UserSession(
@@ -336,7 +337,7 @@ object FirebaseSyncManager {
                 }
 
             activeListener = db.collection("families").document(familyId).collection("tasks")
-                .addSnapshotListener { snapshot, error ->
+                .addSnapshotListener(MetadataChanges.INCLUDE) { snapshot, error ->
                     if (error != null) {
                         Log.e(TAG, "FirebaseSyncManager: Sync observation of tasks failed", error)
                         return@addSnapshotListener

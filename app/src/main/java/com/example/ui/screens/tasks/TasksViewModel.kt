@@ -13,7 +13,12 @@ import com.example.data.TaskRepository
 import com.example.util.FirebaseSyncManager
 import com.example.util.Language
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.util.UUID
 
@@ -75,18 +80,21 @@ class TasksViewModel(
 
     // Pending tasks for current profile
     @OptIn(ExperimentalCoroutinesApi::class)
-    val tasks: StateFlow<List<Task>> = curProfile
-        .flatMapLatest { profile ->
-            repository.getTasksForProfile(profile)
-        }
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5000),
-            initialValue = emptyList()
-        )
+    val tasks: StateFlow<List<Task>> = combine(curProfile, currentUserSession) { profile, _ ->
+        profile
+    }.flatMapLatest { profile ->
+        repository.getTasksForProfile(profile)
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = emptyList()
+    )
 
-    val allTasks: StateFlow<List<Task>> = repository.getAllTasks()
-        .stateIn(
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val allTasks: StateFlow<List<Task>> = currentUserSession
+        .flatMapLatest { _ ->
+            repository.getAllTasks()
+        }.stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
             initialValue = emptyList()
@@ -123,6 +131,23 @@ class TasksViewModel(
             // Sync to Firebase if a Family board is linked
             if (session?.familyId != null) {
                 FirebaseSyncManager.pushTaskAdditionOrUpdate(task)
+            }
+        }
+    }
+
+    fun updateTaskTitle(task: Task, newTitle: String) {
+        if (newTitle.isBlank()) return
+        viewModelScope.launch {
+            val session = currentUserSession.value
+            val updatedTask = task.copy(
+                title = newTitle.trim()
+            )
+            repository.updateTask(updatedTask)
+            FirebaseSyncManager.triggerWidgetUpdate()
+
+            // Sync status to Firestore
+            if (session?.familyId != null) {
+                FirebaseSyncManager.pushTaskAdditionOrUpdate(updatedTask)
             }
         }
     }
