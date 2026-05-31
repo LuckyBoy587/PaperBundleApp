@@ -12,13 +12,12 @@ import androidx.glance.GlanceModifier
 import androidx.glance.GlanceTheme
 import androidx.glance.Image
 import androidx.glance.ImageProvider
-import androidx.glance.action.actionParametersOf
-import androidx.glance.action.clickable
 import androidx.glance.action.ActionParameters
+import androidx.glance.action.actionParametersOf
+import androidx.glance.action.actionStartActivity
+import androidx.glance.action.clickable
 import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.action.actionRunCallback
-import androidx.glance.action.actionStartActivity
-import com.example.MainActivity
 import androidx.glance.appwidget.cornerRadius
 import androidx.glance.appwidget.lazy.LazyColumn
 import androidx.glance.appwidget.lazy.items
@@ -29,27 +28,32 @@ import androidx.glance.layout.Box
 import androidx.glance.layout.Column
 import androidx.glance.layout.Row
 import androidx.glance.layout.Spacer
-import androidx.glance.layout.fillMaxHeight
 import androidx.glance.layout.fillMaxSize
 import androidx.glance.layout.fillMaxWidth
 import androidx.glance.layout.height
 import androidx.glance.layout.padding
 import androidx.glance.layout.size
 import androidx.glance.layout.width
+import androidx.glance.material3.ColorProviders
 import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
+import com.example.MainActivity
 import com.example.R
 import com.example.data.Task
 import com.example.data.TaskDatabase
 import com.example.data.TaskRepository
-import androidx.glance.unit.ColorProvider
-import com.example.util.FirebaseSyncManager
+import com.example.ui.theme.DarkColorScheme
+import com.example.ui.theme.LightColorScheme
 
 class TodoWidget : GlanceAppWidget() {
 
     companion object {
         val openAddTaskKey = ActionParameters.Key<Boolean>("open_add_task")
+        val colors = ColorProviders(
+            light = LightColorScheme,
+            dark = DarkColorScheme
+        )
     }
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
@@ -64,7 +68,7 @@ class TodoWidget : GlanceAppWidget() {
         val tasksFlow = repository.getTasksForProfile(profile)
 
         provideContent {
-            GlanceTheme {
+            GlanceTheme(colors = colors) {
                 val tasks by tasksFlow.collectAsState(initial = emptyList())
                 val pendingTasks = tasks.filter { !it.isCompleted }
 
@@ -84,7 +88,7 @@ class TodoWidget : GlanceAppWidget() {
         Box(
             modifier = GlanceModifier
                 .fillMaxSize()
-                .background(GlanceTheme.colors.widgetBackground)
+                .background(GlanceTheme.colors.background)
                 .cornerRadius(16.dp)
                 .padding(12.dp)
         ) {
